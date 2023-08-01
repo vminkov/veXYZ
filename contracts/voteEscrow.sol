@@ -6,7 +6,7 @@ import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
 // import {IVeArtProxy} from "./interfaces/IVeArtProxy.sol";
-import {IVotingEscrow} from "./interfaces/IVoteEscrow.sol";
+import {IVoteEscrow} from "./interfaces/IVoteEscrow.sol";
 
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";

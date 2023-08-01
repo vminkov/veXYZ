@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.13;
 
-interface IVotingEscrow {
+interface IVoteEscrow {
 
     struct Point {
         int128 bias;
