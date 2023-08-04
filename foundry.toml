@@ -1,0 +1,6 @@
+[profile.default]
+src = 'contracts'
+bytecode_hash = 'none'
+solc_version = "0.8.13"
+libs = ["lib"]
+

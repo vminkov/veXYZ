@@ -72,6 +72,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     //////////////////////////////////////////////////////////////*/
 
     address public immutable token;
+    address public immutable native;
     address public voter;
     address public team;
     address public artProxy;
@@ -165,7 +166,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         return _isApprovedOrOwner(_spender, _tokenId);
     }
 
-    /// @dev Exeute transfer of a NFT.
+    /// @dev Execute transfer of a NFT.
     ///      Throws unless `msg.sender` is the current owner, an authorized operator, or the approved
     ///      address for this NFT. (NOTE: `msg.sender` not allowed in internal function so pass `_sender`.)
     ///      Throws if `_to` is the zero address.
@@ -208,6 +209,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         address _to,
         uint _tokenId
     ) public override {
+        revert("not transferrable");
         _transferFrom(_from, _to, _tokenId, msg.sender);
     }
 
@@ -572,11 +574,14 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     /// @param deposit_type The type of deposit
     function _deposit_for(
         uint _tokenId,
-        uint _value,
+        address _asset,
+        uint _amount,
         uint unlock_time,
         LockedBalance memory locked_balance,
         DepositType deposit_type
     ) internal {
+        uint _value = weight(_asset) * _amount;
+
         LockedBalance memory _locked = locked_balance;
         uint supply_before = supply;
 
@@ -597,11 +602,11 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         _checkpoint(_tokenId, old_locked, _locked);
 
         address from = msg.sender;
-        if (_value != 0 && deposit_type != DepositType.MERGE_TYPE && deposit_type != DepositType.SPLIT_TYPE ) {
-            assert(IERC20(token).transferFrom(from, address(this), _value));
+        if (_amount != 0 && deposit_type != DepositType.MERGE_TYPE && deposit_type != DepositType.SPLIT_TYPE ) {
+            assert(IERC20(_asset).transferFrom(from, address(this), _amount));
         }
 
-        emit Deposit(from, _tokenId, _value, _locked.end, deposit_type, block.timestamp);
+        emit Deposit(from, _tokenId, _asset, _amount, _locked.end, deposit_type, block.timestamp);
         emit Supply(supply_before, supply_before + _value);
     }
 
@@ -619,23 +624,23 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     ///      cannot extend their locktime and deposit for a brand new user
     /// @param _tokenId lock NFT
     /// @param _value Amount to add to user's lock
-    function deposit_for(uint _tokenId, uint _value) external nonReentrant {
+    function deposit_for(uint _tokenId, address _asset, uint _amount) external nonReentrant {
         LockedBalance memory _locked = locked[_tokenId];
 
-        require(_value > 0); // dev: need non-zero value
+        require(_amount > 0); // dev: need non-zero value
         require(_locked.amount > 0, 'No existing lock found');
         require(_locked.end > block.timestamp, 'Cannot add to expired lock. Withdraw');
-        _deposit_for(_tokenId, _value, 0, _locked, DepositType.DEPOSIT_FOR_TYPE);
+        _deposit_for(_tokenId, _asset, _amount, 0, _locked, DepositType.DEPOSIT_FOR_TYPE);
     }
 
     /// @notice Deposit `_value` tokens for `_to` and lock for `_lock_duration`
     /// @param _value Amount to deposit
     /// @param _lock_duration Number of seconds to lock tokens for (rounded down to nearest week)
     /// @param _to Address to deposit
-    function _create_lock(uint _value, uint _lock_duration, address _to) internal returns (uint) {
+    function _create_lock(address _asset, uint _amount, uint _lock_duration, address _to) internal returns (uint) {
         uint unlock_time = (block.timestamp + _lock_duration) / WEEK * WEEK; // Locktime is rounded down to weeks
 
-        require(_value > 0); // dev: need non-zero value
+        require(_amount > 0); // dev: need non-zero value
         require(unlock_time > block.timestamp, 'Can only lock until time in the future');
         require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 1 year max');
 
@@ -643,7 +648,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         uint _tokenId = tokenId;
         _mint(_to, _tokenId);
 
-        _deposit_for(_tokenId, _value, unlock_time, locked[_tokenId], DepositType.CREATE_LOCK_TYPE);
+        _deposit_for(_tokenId, _asset, _amount, unlock_time, locked[_tokenId], DepositType.CREATE_LOCK_TYPE);
         return _tokenId;
     }
 
@@ -651,22 +656,22 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     /// @param _value Amount to deposit
     /// @param _lock_duration Number of seconds to lock tokens for (rounded down to nearest week)
     /// @param _to Address to deposit
-    function create_lock_for(uint _value, uint _lock_duration, address _to) external nonReentrant returns (uint) {
-        return _create_lock(_value, _lock_duration, _to);
+    function create_lock_for(address _asset, uint _amount, uint _lock_duration, address _to) external nonReentrant returns (uint) {
+        return _create_lock(_asset, _amount, _lock_duration, _to);
     }
 
     /// @notice Deposit `_value` additional tokens for `_tokenId` without modifying the unlock time
     /// @param _value Amount of tokens to deposit and add to the lock
-    function increase_amount(uint _tokenId, uint _value) external nonReentrant {
+    function increase_amount(uint _tokenId, address _asset, uint _amount) external nonReentrant {
         assert(_isApprovedOrOwner(msg.sender, _tokenId));
 
         LockedBalance memory _locked = locked[_tokenId];
 
-        assert(_value > 0); // dev: need non-zero value
+        assert(_amount > 0); // dev: need non-zero value
         require(_locked.amount > 0, 'No existing lock found');
         require(_locked.end > block.timestamp, 'Cannot add to expired lock. Withdraw');
 
-        _deposit_for(_tokenId, _value, 0, _locked, DepositType.INCREASE_LOCK_AMOUNT);
+        _deposit_for(_tokenId, _asset, _amount, 0, _locked, DepositType.INCREASE_LOCK_AMOUNT);
     }
 
     /// @notice Extend the unlock time for `_tokenId`
@@ -682,7 +687,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         require(unlock_time > _locked.end, 'Can only increase lock duration');
         require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 2 years max');
 
-        _deposit_for(_tokenId, 0, unlock_time, _locked, DepositType.INCREASE_UNLOCK_TIME);
+        _deposit_for(_tokenId, token, 0, unlock_time, _locked, DepositType.INCREASE_UNLOCK_TIME);
     }
 
     /// @notice Withdraw all tokens for `_tokenId`
@@ -941,7 +946,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         locked[_from] = LockedBalance(0, 0);
         _checkpoint(_from, _locked0, LockedBalance(0, 0));
         _burn(_from);
-        _deposit_for(_to, value0, end, _locked1, DepositType.MERGE_TYPE);
+        _deposit_for(_to, native, value0, end, _locked1, DepositType.MERGE_TYPE);
     }
 
 
@@ -989,7 +994,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
             _tokenId = tokenId;
             _mint(_to, _tokenId);
             _value = value * amounts[i] / totalWeight;
-            _deposit_for(_tokenId, _value, unlock_time, locked[_tokenId], DepositType.SPLIT_TYPE);
+            _deposit_for(_tokenId, native, _value, unlock_time, locked[_tokenId], DepositType.SPLIT_TYPE);
         }     
 
     }
