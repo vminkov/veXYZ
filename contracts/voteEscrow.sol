@@ -59,7 +59,8 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     event Deposit(
         address indexed provider,
         uint tokenId,
-        uint value,
+        address asset,
+        uint amount,
         uint indexed locktime,
         DepositType deposit_type,
         uint ts
@@ -96,8 +97,9 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
 
     /// @notice Contract constructor
     /// @param token_addr `THENA` token address
-    constructor(address token_addr, address art_proxy) {
+    constructor(address token_addr, address art_proxy, address native_addr) {
         token = token_addr;
+        native = native_addr;
         voter = msg.sender;
         team = msg.sender;
         artProxy = art_proxy;
@@ -566,9 +568,15 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         }
     }
 
+    function weight(address _asset) internal pure returns (uint256) {
+        // TODO
+        return 1e18;
+    }
+
     /// @notice Deposit and lock tokens for a user
     /// @param _tokenId NFT that holds lock
-    /// @param _value Amount to deposit
+    /// @param _asset Asset to deposit
+    /// @param _amount Amount to deposit
     /// @param unlock_time New time when to unlock the tokens, or 0 if unchanged
     /// @param locked_balance Previous locked amount / timestamp
     /// @param deposit_type The type of deposit
@@ -580,7 +588,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         LockedBalance memory locked_balance,
         DepositType deposit_type
     ) internal {
-        uint _value = weight(_asset) * _amount;
+        uint _value = (weight(_asset) * _amount) / 1e18;
 
         LockedBalance memory _locked = locked_balance;
         uint supply_before = supply;
@@ -623,7 +631,8 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     /// @dev Anyone (even a smart contract) can deposit for someone else, but
     ///      cannot extend their locktime and deposit for a brand new user
     /// @param _tokenId lock NFT
-    /// @param _value Amount to add to user's lock
+    /// @param _asset Asset to add to user's lock
+    /// @param _amount Amount to add to user's lock
     function deposit_for(uint _tokenId, address _asset, uint _amount) external nonReentrant {
         LockedBalance memory _locked = locked[_tokenId];
 
@@ -634,7 +643,8 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     }
 
     /// @notice Deposit `_value` tokens for `_to` and lock for `_lock_duration`
-    /// @param _value Amount to deposit
+    /// @param _asset Asset to deposit
+    /// @param _amount Amount to deposit
     /// @param _lock_duration Number of seconds to lock tokens for (rounded down to nearest week)
     /// @param _to Address to deposit
     function _create_lock(address _asset, uint _amount, uint _lock_duration, address _to) internal returns (uint) {
@@ -653,7 +663,8 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     }
 
     /// @notice Deposit `_value` tokens for `_to` and lock for `_lock_duration`
-    /// @param _value Amount to deposit
+    /// @param _asset Asset to deposit
+    /// @param _amount Amount to deposit
     /// @param _lock_duration Number of seconds to lock tokens for (rounded down to nearest week)
     /// @param _to Address to deposit
     function create_lock_for(address _asset, uint _amount, uint _lock_duration, address _to) external nonReentrant returns (uint) {
@@ -661,7 +672,8 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     }
 
     /// @notice Deposit `_value` additional tokens for `_tokenId` without modifying the unlock time
-    /// @param _value Amount of tokens to deposit and add to the lock
+    /// @param _asset Kind of token to deposit and add to the lock
+    /// @param _amount Amount of tokens to deposit and add to the lock
     function increase_amount(uint _tokenId, address _asset, uint _amount) external nonReentrant {
         assert(_isApprovedOrOwner(msg.sender, _tokenId));
 
@@ -709,6 +721,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         // Both can have >= 0 amount
         _checkpoint(_tokenId, _locked, LockedBalance(0,0));
 
+        // TODO return the assets that were locked, not the token equivalent
         assert(IERC20(token).transfer(msg.sender, value));
 
         // Burn the NFT
