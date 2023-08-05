@@ -10,5 +10,6 @@ typechain-types
 cache
 artifacts
 
-veXYZ.iml
+lib/
 out/
+veXYZ.iml

@@ -1119,7 +1119,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         require(unlock_time > block.timestamp, 'Can only lock until time in the future');
         require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 1 years max');
 
-        // mint
+        // mint 
         uint _value = 0;
         for(i = 0; i < amounts.length; i++){
             ++tokenId;
