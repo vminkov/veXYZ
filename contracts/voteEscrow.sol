@@ -8,20 +8,15 @@ import {IERC20} from "./interfaces/IERC20.sol";
 // import {IVeArtProxy} from "./interfaces/IVeArtProxy.sol";
 import {IVoteEscrow} from "./interfaces/IVoteEscrow.sol";
 
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-
-/// @title Vote Escrow
-/// @notice veXYZ implementation that escrows ERC-20 tokens in the form of an ERC-721 NFT
+/// @title Voting Escrow
+/// @notice veNFT implementation that escrows ERC-20 tokens in the form of an ERC-721 NFT
 /// @notice Votes have a weight depending on time, so that users are committed to the future of (whatever they are voting for)
 /// @author Modified from Solidly (https://github.com/solidlyexchange/solidly/blob/master/contracts/ve.sol)
 /// @author Modified from Curve (https://github.com/curvefi/curve-dao-contracts/blob/master/contracts/VotingEscrow.vy)
 /// @author Modified from Nouns DAO (https://github.com/withtally/my-nft-dao-project/blob/main/contracts/ERC721Checkpointable.sol)
 /// @author Modified from THENA (https://github.com/ThenafiBNB/THENA-Contracts/blob/main/contracts/VotingEscrow.sol)
-/// @dev Vote weight decays linearly over time. Lock time cannot be more than `MAXTIME` (1 year).
-contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
+/// @dev Vote weight decays linearly over time. Lock time cannot be more than `MAXTIME` (1 years).
+contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
     enum DepositType {
         DEPOSIT_FOR_TYPE,
         CREATE_LOCK_TYPE,
@@ -59,8 +54,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     event Deposit(
         address indexed provider,
         uint tokenId,
-        address asset,
-        uint amount,
+        uint value,
         uint indexed locktime,
         DepositType deposit_type,
         uint ts
@@ -73,7 +67,6 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     //////////////////////////////////////////////////////////////*/
 
     address public immutable token;
-    address public immutable native;
     address public voter;
     address public team;
     address public artProxy;
@@ -97,9 +90,8 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
 
     /// @notice Contract constructor
     /// @param token_addr `THENA` token address
-    constructor(address token_addr, address art_proxy, address native_addr) {
+    constructor(address token_addr, address art_proxy) {
         token = token_addr;
-        native = native_addr;
         voter = msg.sender;
         team = msg.sender;
         artProxy = art_proxy;
@@ -117,10 +109,27 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         emit Transfer(address(this), address(0), tokenId);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                                MODIFIERS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev reentrancy guard
+    uint8 internal constant _not_entered = 1;
+    uint8 internal constant _entered = 2;
+    uint8 internal _entered_state = 1;
+    modifier nonreentrant() {
+        require(_entered_state == _not_entered);
+        _entered_state = _entered;
+        _;
+        _entered_state = _not_entered;
+    }
+
     /*///////////////////////////////////////////////////////////////
                              METADATA STORAGE
     //////////////////////////////////////////////////////////////*/
 
+    string constant public name = "veThena";
+    string constant public symbol = "veTHE";
     string constant public version = "1.0.0";
     uint8 constant public decimals = 18;
 
@@ -136,39 +145,134 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
 
     /// @dev Returns current token URI metadata
     /// @param _tokenId Token ID to fetch URI for.
-    function tokenURI(uint _tokenId) public override view returns (string memory) {
-        require(_ownerOf(_tokenId) != address(0), "Query for nonexistent token");
+    function tokenURI(uint _tokenId) external view returns (string memory) {
+        require(idToOwner[_tokenId] != address(0), "Query for nonexistent token");
         LockedBalance memory _locked = locked[_tokenId];
         // return IVeArtProxy(artProxy)._tokenURI(_tokenId,_balanceOfNFT(_tokenId, block.timestamp),_locked.end,uint(int256(_locked.amount)));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                      ERC721 BALANCE/OWNER STORAGE
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Mapping from NFT ID to the address that owns it.
+    mapping(uint => address) internal idToOwner;
+
+    /// @dev Mapping from owner address to count of his tokens.
+    mapping(address => uint) internal ownerToNFTokenCount;
+
+    /// @dev Returns the address of the owner of the NFT.
+    /// @param _tokenId The identifier for an NFT.
+    function ownerOf(uint _tokenId) public view returns (address) {
+        return idToOwner[_tokenId];
+    }
+
+    /// @dev Returns the number of NFTs owned by `_owner`.
+    ///      Throws if `_owner` is the zero address. NFTs assigned to the zero address are considered invalid.
+    /// @param _owner Address for whom to query the balance.
+    function _balance(address _owner) internal view returns (uint) {
+        return ownerToNFTokenCount[_owner];
+    }
+
+    /// @dev Returns the number of NFTs owned by `_owner`.
+    ///      Throws if `_owner` is the zero address. NFTs assigned to the zero address are considered invalid.
+    /// @param _owner Address for whom to query the balance.
+    function balanceOf(address _owner) external view returns (uint) {
+        return _balance(_owner);
     }
 
     /*//////////////////////////////////////////////////////////////
                          ERC721 APPROVAL STORAGE
     //////////////////////////////////////////////////////////////*/
 
+    /// @dev Mapping from NFT ID to approved address.
+    mapping(uint => address) internal idToApprovals;
+
+    /// @dev Mapping from owner address to mapping of operator addresses.
+    mapping(address => mapping(address => bool)) internal ownerToOperators;
+
     mapping(uint => uint) public ownership_change;
+
+    /// @dev Get the approved address for a single NFT.
+    /// @param _tokenId ID of the NFT to query the approval of.
+    function getApproved(uint _tokenId) external view returns (address) {
+        return idToApprovals[_tokenId];
+    }
+
+    /// @dev Checks if `_operator` is an approved operator for `_owner`.
+    /// @param _owner The address that owns the NFTs.
+    /// @param _operator The address that acts on behalf of the owner.
+    function isApprovedForAll(address _owner, address _operator) external view returns (bool) {
+        return (ownerToOperators[_owner])[_operator];
+    }
 
     /*//////////////////////////////////////////////////////////////
                               ERC721 LOGIC
     //////////////////////////////////////////////////////////////*/
+
+    /// @dev Set or reaffirm the approved address for an NFT. The zero address indicates there is no approved address.
+    ///      Throws unless `msg.sender` is the current NFT owner, or an authorized operator of the current owner.
+    ///      Throws if `_tokenId` is not a valid NFT. (NOTE: This is not written the EIP)
+    ///      Throws if `_approved` is the current owner. (NOTE: This is not written the EIP)
+    /// @param _approved Address to be approved for the given NFT ID.
+    /// @param _tokenId ID of the token to be approved.
+    function approve(address _approved, uint _tokenId) public {
+        address owner = idToOwner[_tokenId];
+        // Throws if `_tokenId` is not a valid NFT
+        require(owner != address(0));
+        // Throws if `_approved` is the current owner
+        require(_approved != owner);
+        // Check requirements
+        bool senderIsOwner = (idToOwner[_tokenId] == msg.sender);
+        bool senderIsApprovedForAll = (ownerToOperators[owner])[msg.sender];
+        require(senderIsOwner || senderIsApprovedForAll);
+        // Set the approval
+        idToApprovals[_tokenId] = _approved;
+        emit Approval(owner, _approved, _tokenId);
+    }
+
+    /// @dev Enables or disables approval for a third party ("operator") to manage all of
+    ///      `msg.sender`'s assets. It also emits the ApprovalForAll event.
+    ///      Throws if `_operator` is the `msg.sender`. (NOTE: This is not written the EIP)
+    /// @notice This works even if sender doesn't own any tokens at the time.
+    /// @param _operator Address to add to the set of authorized operators.
+    /// @param _approved True if the operators is approved, false to revoke approval.
+    function setApprovalForAll(address _operator, bool _approved) external {
+        // Throws if `_operator` is the `msg.sender`
+        assert(_operator != msg.sender);
+        ownerToOperators[msg.sender][_operator] = _approved;
+        emit ApprovalForAll(msg.sender, _operator, _approved);
+    }
 
     /* TRANSFER FUNCTIONS */
     /// @dev Clear an approval of a given address
     ///      Throws if `_owner` is not the current owner.
     function _clearApproval(address _owner, uint _tokenId) internal {
         // Throws if `_owner` is not the current owner
-        assert(_ownerOf(_tokenId) == _owner);
-        if (getApproved(_tokenId) != address(0)) {
+        assert(idToOwner[_tokenId] == _owner);
+        if (idToApprovals[_tokenId] != address(0)) {
             // Reset approvals
-            _approve(address(0), _tokenId); 
+            idToApprovals[_tokenId] = address(0);
         }
+    }
+
+    /// @dev Returns whether the given spender can transfer a given token ID
+    /// @param _spender address of the spender to query
+    /// @param _tokenId uint ID of the token to be transferred
+    /// @return bool whether the msg.sender is approved for the given token ID, is an operator of the owner, or is the owner of the token
+    function _isApprovedOrOwner(address _spender, uint _tokenId) internal view returns (bool) {
+        address owner = idToOwner[_tokenId];
+        bool spenderIsOwner = owner == _spender;
+        bool spenderIsApproved = _spender == idToApprovals[_tokenId];
+        bool spenderIsApprovedForAll = (ownerToOperators[owner])[_spender];
+        return spenderIsOwner || spenderIsApproved || spenderIsApprovedForAll;
     }
 
     function isApprovedOrOwner(address _spender, uint _tokenId) external view returns (bool) {
         return _isApprovedOrOwner(_spender, _tokenId);
     }
 
-    /// @dev Execute transfer of a NFT.
+    /// @dev Exeute transfer of a NFT.
     ///      Throws unless `msg.sender` is the current owner, an authorized operator, or the approved
     ///      address for this NFT. (NOTE: `msg.sender` not allowed in internal function so pass `_sender`.)
     ///      Throws if `_to` is the zero address.
@@ -210,9 +314,27 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         address _from,
         address _to,
         uint _tokenId
-    ) public override {
-        revert("not transferrable");
+    ) external {
         _transferFrom(_from, _to, _tokenId, msg.sender);
+    }
+
+    /// @dev Transfers the ownership of an NFT from one address to another address.
+    ///      Throws unless `msg.sender` is the current owner, an authorized operator, or the
+    ///      approved address for this NFT.
+    ///      Throws if `_from` is not the current owner.
+    ///      Throws if `_to` is the zero address.
+    ///      Throws if `_tokenId` is not a valid NFT.
+    ///      If `_to` is a smart contract, it calls `onERC721Received` on `_to` and throws if
+    ///      the return value is not `bytes4(keccak256("onERC721Received(address,address,uint,bytes)"))`.
+    /// @param _from The current owner of the NFT.
+    /// @param _to The new owner.
+    /// @param _tokenId The NFT to transfer.
+    function safeTransferFrom(
+        address _from,
+        address _to,
+        uint _tokenId
+    ) external {
+        safeTransferFrom(_from, _to, _tokenId, "");
     }
 
     function _isContract(address account) internal view returns (bool) {
@@ -243,7 +365,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         address _to,
         uint _tokenId,
         bytes memory _data
-    ) public override {
+    ) public {
         _transferFrom(_from, _to, _tokenId, msg.sender);
 
         if (_isContract(_to)) {
@@ -270,7 +392,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
 
     /// @dev Interface identification is specified in ERC-165.
     /// @param _interfaceID Id of the interface
-    function supportsInterface(bytes4 _interfaceID) public view override returns (bool) {
+    function supportsInterface(bytes4 _interfaceID) external view returns (bool) {
         return supportedInterfaces[_interfaceID];
     }
 
@@ -293,7 +415,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     /// @param _to address of the receiver
     /// @param _tokenId uint ID Of the token to be added
     function _addTokenToOwnerList(address _to, uint _tokenId) internal {
-        uint current_count = balanceOf(_to) - 1;
+        uint current_count = _balance(_to);
 
         ownerToNFTokenIdList[_to][current_count] = _tokenId;
         tokenToOwnerIndex[_tokenId] = current_count;
@@ -303,11 +425,13 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     ///      Throws if `_tokenId` is owned by someone.
     function _addTokenTo(address _to, uint _tokenId) internal {
         // Throws if `_tokenId` is owned by someone
-        assert(ownerOf(_tokenId) == address(0));
-        // Change the owner and count tracking
-        super._mint(_to, _tokenId);
+        assert(idToOwner[_tokenId] == address(0));
+        // Change the owner
+        idToOwner[_tokenId] = _to;
         // Update owner token index tracking
         _addTokenToOwnerList(_to, _tokenId);
+        // Change count tracking
+        ownerToNFTokenCount[_to] += 1;
     }
 
     /// @dev Function to mint tokens
@@ -315,8 +439,8 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     ///      Throws if `_tokenId` is owned by someone.
     /// @param _to The address that will receive the minted tokens.
     /// @param _tokenId The token id to mint.
-    // / @return A boolean that indicates if the operation was successful.
-    function _mint(address _to, uint _tokenId) internal override {
+    /// @return A boolean that indicates if the operation was successful.
+    function _mint(address _to, uint _tokenId) internal returns (bool) {
         // Throws if `_to` is zero address
         assert(_to != address(0));
         // checkpoint for gov
@@ -324,7 +448,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         // Add NFT. Throws if `_tokenId` is owned by someone
         _addTokenTo(_to, _tokenId);
         emit Transfer(address(0), _to, _tokenId);
-        // return true;
+        return true;
     }
 
     /// @dev Remove a NFT from an index mapping to a given address
@@ -332,7 +456,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     /// @param _tokenId uint ID Of the token to be removed
     function _removeTokenFromOwnerList(address _from, uint _tokenId) internal {
         // Delete
-        uint current_count = balanceOf(_from);
+        uint current_count = _balance(_from) - 1;
         uint current_index = tokenToOwnerIndex[_tokenId];
 
         if (current_count == current_index) {
@@ -361,14 +485,16 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     ///      Throws if `_from` is not the current owner.
     function _removeTokenFrom(address _from, uint _tokenId) internal {
         // Throws if `_from` is not the current owner
-        assert(ownerOf(_tokenId) == _from);
-        // Change the owner and count tracking
-        super._burn(_tokenId);
+        assert(idToOwner[_tokenId] == _from);
+        // Change the owner
+        idToOwner[_tokenId] = address(0);
         // Update owner token index tracking
         _removeTokenFromOwnerList(_from, _tokenId);
+        // Change count tracking
+        ownerToNFTokenCount[_from] -= 1;
     }
 
-    function _burn(uint _tokenId) internal override {
+    function _burn(uint _tokenId) internal {
         require(_isApprovedOrOwner(msg.sender, _tokenId), "caller is not owner nor approved");
 
         address owner = ownerOf(_tokenId);
@@ -380,7 +506,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         // Remove token
         //_removeTokenFrom(msg.sender, _tokenId);
         _removeTokenFrom(owner, _tokenId);
-        
+
         emit Transfer(owner, address(0), _tokenId);
     }
 
@@ -568,28 +694,19 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         }
     }
 
-    function weight(address _asset) internal pure returns (uint256) {
-        // TODO
-        return 1e18;
-    }
-
     /// @notice Deposit and lock tokens for a user
     /// @param _tokenId NFT that holds lock
-    /// @param _asset Asset to deposit
-    /// @param _amount Amount to deposit
+    /// @param _value Amount to deposit
     /// @param unlock_time New time when to unlock the tokens, or 0 if unchanged
     /// @param locked_balance Previous locked amount / timestamp
     /// @param deposit_type The type of deposit
     function _deposit_for(
         uint _tokenId,
-        address _asset,
-        uint _amount,
+        uint _value,
         uint unlock_time,
         LockedBalance memory locked_balance,
         DepositType deposit_type
     ) internal {
-        uint _value = (weight(_asset) * _amount) / 1e18;
-
         LockedBalance memory _locked = locked_balance;
         uint supply_before = supply;
 
@@ -610,11 +727,11 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         _checkpoint(_tokenId, old_locked, _locked);
 
         address from = msg.sender;
-        if (_amount != 0 && deposit_type != DepositType.MERGE_TYPE && deposit_type != DepositType.SPLIT_TYPE ) {
-            assert(IERC20(_asset).transferFrom(from, address(this), _amount));
+        if (_value != 0 && deposit_type != DepositType.MERGE_TYPE && deposit_type != DepositType.SPLIT_TYPE ) {
+            assert(IERC20(token).transferFrom(from, address(this), _value));
         }
 
-        emit Deposit(from, _tokenId, _asset, _amount, _locked.end, deposit_type, block.timestamp);
+        emit Deposit(from, _tokenId, _value, _locked.end, deposit_type, block.timestamp);
         emit Supply(supply_before, supply_before + _value);
     }
 
@@ -631,64 +748,67 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     /// @dev Anyone (even a smart contract) can deposit for someone else, but
     ///      cannot extend their locktime and deposit for a brand new user
     /// @param _tokenId lock NFT
-    /// @param _asset Asset to add to user's lock
-    /// @param _amount Amount to add to user's lock
-    function deposit_for(uint _tokenId, address _asset, uint _amount) external nonReentrant {
+    /// @param _value Amount to add to user's lock
+    function deposit_for(uint _tokenId, uint _value) external nonreentrant {
         LockedBalance memory _locked = locked[_tokenId];
 
-        require(_amount > 0); // dev: need non-zero value
+        require(_value > 0); // dev: need non-zero value
         require(_locked.amount > 0, 'No existing lock found');
         require(_locked.end > block.timestamp, 'Cannot add to expired lock. Withdraw');
-        _deposit_for(_tokenId, _asset, _amount, 0, _locked, DepositType.DEPOSIT_FOR_TYPE);
+        _deposit_for(_tokenId, _value, 0, _locked, DepositType.DEPOSIT_FOR_TYPE);
     }
 
     /// @notice Deposit `_value` tokens for `_to` and lock for `_lock_duration`
-    /// @param _asset Asset to deposit
-    /// @param _amount Amount to deposit
+    /// @param _value Amount to deposit
     /// @param _lock_duration Number of seconds to lock tokens for (rounded down to nearest week)
     /// @param _to Address to deposit
-    function _create_lock(address _asset, uint _amount, uint _lock_duration, address _to) internal returns (uint) {
+    function _create_lock(uint _value, uint _lock_duration, address _to) internal returns (uint) {
         uint unlock_time = (block.timestamp + _lock_duration) / WEEK * WEEK; // Locktime is rounded down to weeks
 
-        require(_amount > 0); // dev: need non-zero value
+        require(_value > 0); // dev: need non-zero value
         require(unlock_time > block.timestamp, 'Can only lock until time in the future');
-        require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 1 year max');
+        require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 1 years max');
 
         ++tokenId;
         uint _tokenId = tokenId;
         _mint(_to, _tokenId);
 
-        _deposit_for(_tokenId, _asset, _amount, unlock_time, locked[_tokenId], DepositType.CREATE_LOCK_TYPE);
+        _deposit_for(_tokenId, _value, unlock_time, locked[_tokenId], DepositType.CREATE_LOCK_TYPE);
         return _tokenId;
     }
 
+    /// @notice Deposit `_value` tokens for `msg.sender` and lock for `_lock_duration`
+    /// @param _value Amount to deposit
+    /// @param _lock_duration Number of seconds to lock tokens for (rounded down to nearest week)
+    function create_lock(uint _value, uint _lock_duration) external nonreentrant returns (uint) {
+        return _create_lock(_value, _lock_duration, msg.sender);
+    }
+
     /// @notice Deposit `_value` tokens for `_to` and lock for `_lock_duration`
-    /// @param _asset Asset to deposit
-    /// @param _amount Amount to deposit
+    /// @param _value Amount to deposit
     /// @param _lock_duration Number of seconds to lock tokens for (rounded down to nearest week)
     /// @param _to Address to deposit
-    function create_lock_for(address _asset, uint _amount, uint _lock_duration, address _to) external nonReentrant returns (uint) {
-        return _create_lock(_asset, _amount, _lock_duration, _to);
+    function create_lock_for(uint _value, uint _lock_duration, address _to) external nonreentrant returns (uint) {
+        return _create_lock(_value, _lock_duration, _to);
     }
 
     /// @notice Deposit `_value` additional tokens for `_tokenId` without modifying the unlock time
-    /// @param _asset Kind of token to deposit and add to the lock
-    /// @param _amount Amount of tokens to deposit and add to the lock
-    function increase_amount(uint _tokenId, address _asset, uint _amount) external nonReentrant {
+    /// @param _value Amount of tokens to deposit and add to the lock
+    function increase_amount(uint _tokenId, uint _value) external nonreentrant {
         assert(_isApprovedOrOwner(msg.sender, _tokenId));
 
         LockedBalance memory _locked = locked[_tokenId];
 
-        assert(_amount > 0); // dev: need non-zero value
+        assert(_value > 0); // dev: need non-zero value
         require(_locked.amount > 0, 'No existing lock found');
         require(_locked.end > block.timestamp, 'Cannot add to expired lock. Withdraw');
 
-        _deposit_for(_tokenId, _asset, _amount, 0, _locked, DepositType.INCREASE_LOCK_AMOUNT);
+        _deposit_for(_tokenId, _value, 0, _locked, DepositType.INCREASE_LOCK_AMOUNT);
     }
 
     /// @notice Extend the unlock time for `_tokenId`
     /// @param _lock_duration New number of seconds until tokens unlock
-    function increase_unlock_time(uint _tokenId, uint _lock_duration) external nonReentrant {
+    function increase_unlock_time(uint _tokenId, uint _lock_duration) external nonreentrant {
         assert(_isApprovedOrOwner(msg.sender, _tokenId));
 
         LockedBalance memory _locked = locked[_tokenId];
@@ -697,14 +817,14 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         require(_locked.end > block.timestamp, 'Lock expired');
         require(_locked.amount > 0, 'Nothing is locked');
         require(unlock_time > _locked.end, 'Can only increase lock duration');
-        require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 2 years max');
+        require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 1 years max');
 
-        _deposit_for(_tokenId, token, 0, unlock_time, _locked, DepositType.INCREASE_UNLOCK_TIME);
+        _deposit_for(_tokenId, 0, unlock_time, _locked, DepositType.INCREASE_UNLOCK_TIME);
     }
 
     /// @notice Withdraw all tokens for `_tokenId`
     /// @dev Only possible if the lock has expired
-    function withdraw(uint _tokenId) external nonReentrant {
+    function withdraw(uint _tokenId) external nonreentrant {
         assert(_isApprovedOrOwner(msg.sender, _tokenId));
         require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
 
@@ -721,7 +841,6 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         // Both can have >= 0 amount
         _checkpoint(_tokenId, _locked, LockedBalance(0,0));
 
-        // TODO return the assets that were locked, not the token equivalent
         assert(IERC20(token).transfer(msg.sender, value));
 
         // Burn the NFT
@@ -959,7 +1078,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         locked[_from] = LockedBalance(0, 0);
         _checkpoint(_from, _locked0, LockedBalance(0, 0));
         _burn(_from);
-        _deposit_for(_to, native, value0, end, _locked1, DepositType.MERGE_TYPE);
+        _deposit_for(_to, value0, end, _locked1, DepositType.MERGE_TYPE);
     }
 
 
@@ -969,18 +1088,18 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
      * @param _tokenId  NFTs ID
      */
     function split(uint[] memory amounts, uint _tokenId) external {
-        
+
         // check permission and vote
         require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
         require(_isApprovedOrOwner(msg.sender, _tokenId));
 
         // save old data and totalWeight
-        address _to = ownerOf(_tokenId);
+        address _to = idToOwner[_tokenId];
         LockedBalance memory _locked = locked[_tokenId];
         uint end = _locked.end;
         uint value = uint(int256(_locked.amount));
         require(value > 0); // dev: need non-zero value
-        
+
         // reset supply, _deposit_for increase it
         supply = supply - value;
 
@@ -998,17 +1117,17 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
         // save end
         uint unlock_time = end;
         require(unlock_time > block.timestamp, 'Can only lock until time in the future');
-        require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 2 years max');
-        
-        // mint 
+        require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 1 years max');
+
+        // mint
         uint _value = 0;
-        for(i = 0; i < amounts.length; i++){   
+        for(i = 0; i < amounts.length; i++){
             ++tokenId;
             _tokenId = tokenId;
             _mint(_to, _tokenId);
             _value = value * amounts[i] / totalWeight;
-            _deposit_for(_tokenId, native, _value, unlock_time, locked[_tokenId], DepositType.SPLIT_TYPE);
-        }     
+            _deposit_for(_tokenId, _value, unlock_time, locked[_tokenId], DepositType.SPLIT_TYPE);
+        }
 
     }
 
@@ -1208,7 +1327,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
                 // All the same except what owner owns
                 for (uint i = 0; i < srcRepOld.length; i++) {
                     uint tId = srcRepOld[i];
-                    if (ownerOf(tId) != owner) {
+                    if (idToOwner[tId] != owner) {
                         srcRepNew.push(tId);
                     }
                 }
@@ -1225,7 +1344,7 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
                 uint[] storage dstRepNew = checkpoints[dstRep][
                     nextDstRepNum
                 ].tokenIds;
-                uint ownerTokenCount = balanceOf(owner);
+                uint ownerTokenCount = ownerToNFTokenCount[owner];
                 require(
                     dstRepOld.length + ownerTokenCount <= MAX_DELEGATES,
                     "dstRep would have too many tokenIds"
@@ -1275,11 +1394,11 @@ contract VoteEscrow is ReentrancyGuardUpgradeable, ERC721Upgradeable, IVotes {
     ) public {
         require(delegatee != msg.sender);
         require(delegatee != address(0));
-        
+
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 DOMAIN_TYPEHASH,
-                keccak256(bytes(name())),
+                keccak256(bytes(name)),
                 keccak256(bytes(version)),
                 block.chainid,
                 address(this)
