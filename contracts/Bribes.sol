@@ -403,14 +403,11 @@ contract Bribe is ReentrancyGuard {
     }
 
     /// @notice Set a new Owner
-    event SetOwner(address indexed _owner);
     function setOwner(address _owner) external onlyAllowed {
         require(_owner != address(0));
         owner = _owner;
         emit SetOwner(_owner);
     }
-
-
 
     /* ========== MODIFIERS ========== */
 
@@ -419,9 +416,9 @@ contract Bribe is ReentrancyGuard {
         _;
     }
 
-
     /* ========== EVENTS ========== */
 
+    event SetOwner(address indexed _owner);
     event RewardAdded(address indexed rewardToken, uint256 reward, uint256 startTimestamp);
     event Staked(uint256 indexed tokenId, uint256 amount);
     event Withdrawn(uint256 indexed tokenId, uint256 amount);
