@@ -25,15 +25,15 @@ contract PairGauge is Gauge {
   function _claimFees() internal override returns (bytes memory) {
     uint256 claimed0;
     uint256 claimed1;
+    IPair pair = IPair(address(TOKEN));
 
-    address _token = address(TOKEN);
-    (claimed0, claimed1) = IPair(_token).claimFees();
+    (claimed0, claimed1) = pair.claimFees();
     if (claimed0 > 0 || claimed1 > 0) {
 
       uint256 _fees0 = claimed0;
       uint256 _fees1 = claimed1;
 
-      (address _token0, address _token1) = IPair(_token).tokens();
+      (address _token0, address _token1) = pair.tokens();
 
       if (_fees0  > 0) {
         IERC20(_token0).approve(internal_bribe, 0);

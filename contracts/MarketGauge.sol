@@ -9,13 +9,13 @@ contract MarketGauge is Gauge {
   constructor(
     address _rewardToken,
     address _ve,
-    address _token,
+    address _target,
     address _distribution,
     address _internal_bribe,
     address _external_bribe
-  ) Gauge(_rewardToken, _ve, _token, _distribution, _internal_bribe, _external_bribe) {}
+  ) Gauge(_rewardToken, _ve, _target, _distribution, _internal_bribe, _external_bribe) {}
 
-  function claimFees() external nonReentrant returns (uint256 claimedFees) {
+  function claimFees() external nonReentrant returns (uint256) {
     return abi.decode(_claimFees(), (uint256));
   }
 
@@ -29,7 +29,7 @@ contract MarketGauge is Gauge {
       if (fees  > 0) {
         // assuming that the admin is the gauge
         IERC20(underlying).approve(internal_bribe, fees);
-        IBribe(internal_bribe).notifyRewardAmount(TARGET, fees);
+        IBribe(internal_bribe).notifyRewardAmount(underlying, fees);
       }
       emit ClaimFees(msg.sender, fees);
     }
