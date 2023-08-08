@@ -5,18 +5,6 @@ import './interfaces/IPair.sol';
 import './Gauge.sol';
 
 contract PairGauge is Gauge {
-  IERC20 public immutable TOKEN;
-
-  constructor(
-    address _rewardToken,
-    address _ve,
-    address _target,
-    address _distribution,
-    address _internal_bribe,
-    address _external_bribe
-  ) Gauge(_rewardToken, _ve, _target, _distribution, _internal_bribe, _external_bribe) {
-    TOKEN = IERC20(_target);                 // underlying (LP)
-  }
 
   function claimFees() external nonReentrant returns (uint256 claimed0, uint256 claimed1) {
     return abi.decode(_claimFees(), (uint256, uint256));
@@ -25,7 +13,7 @@ contract PairGauge is Gauge {
   function _claimFees() internal override returns (bytes memory) {
     uint256 claimed0;
     uint256 claimed1;
-    IPair pair = IPair(address(TOKEN));
+    IPair pair = IPair(target);
 
     (claimed0, claimed1) = pair.claimFees();
     if (claimed0 > 0 || claimed1 > 0) {

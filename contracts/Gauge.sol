@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.13;
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
 
 import './interfaces/IBribe.sol';
 import "./libraries/Math.sol";
@@ -18,23 +19,26 @@ interface IRewarder {
 }
 
 
-abstract contract Gauge is ReentrancyGuard, Ownable {
+abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable {
 
     using SafeERC20 for IERC20;
 
     bool public emergency;
 
 
-    IERC20 public immutable rewardToken;
-    address public immutable TARGET;
+    IERC20 public rewardToken;
 
-    address public VE;
-    address public DISTRIBUTION;
+    // TODO unused?
+    address public target;
+
+    // TODO unused?
+    address public ve;
+    address public distribution;
     address public gaugeRewarder;
     address public internal_bribe;
     address public external_bribe;
 
-    uint256 public immutable DURATION;
+    uint256 public duration;
     uint256 internal _periodFinish;
     uint256 public rewardRate;
     uint256 public lastUpdateTime;
@@ -67,7 +71,7 @@ abstract contract Gauge is ReentrancyGuard, Ownable {
     }
 
     modifier onlyDistribution() {
-        require(msg.sender == DISTRIBUTION, "Caller is not RewardsDistribution contract");
+        require(msg.sender == distribution, "Caller is not RewardsDistribution contract");
         _;
     }
 
@@ -76,18 +80,31 @@ abstract contract Gauge is ReentrancyGuard, Ownable {
         _;
     }
 
-    constructor(address _rewardToken,address _ve,address _target,address _distribution, address _internal_bribe, address _external_bribe) {
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
+        address _rewardToken,
+        address _ve,
+        address _target,
+        address _distribution,
+        address _internal_bribe,
+        address _external_bribe
+    ) external initializer {
+        __Ownable_init();
+        __ReentrancyGuard_init();
+
         rewardToken = IERC20(_rewardToken);     // main reward
-        VE = _ve;                               // vested
-        TARGET = _target;                       // gauge target address
-        DISTRIBUTION = _distribution;           // distro address (voter)
-        DURATION = 7 days;                      // distro time
+        ve = _ve;                               // vested
+        target = _target;                       // gauge target address
+        distribution = _distribution;           // distro address (voter)
+        duration = 14 days;                     // distro time
 
         internal_bribe = _internal_bribe;       // lp fees goes here
         external_bribe = _external_bribe;       // bribe fees goes here
 
         emergency = false;                      // emergency flag
-
     }
 
 
@@ -102,8 +119,8 @@ abstract contract Gauge is ReentrancyGuard, Ownable {
     ///@notice set distribution address (should be voter)
     function setDistribution(address _distribution) external onlyOwner {
         require(_distribution != address(0), "zero addr");
-        require(_distribution != DISTRIBUTION, "same addr");
-        DISTRIBUTION = _distribution;
+        require(_distribution != distribution, "same addr");
+        distribution = _distribution;
     }
 
     ///@notice set gauge rewarder address
@@ -112,12 +129,11 @@ abstract contract Gauge is ReentrancyGuard, Ownable {
         gaugeRewarder = _gaugeRewarder;
     }
 
-
     ///@notice set new internal bribe contract (where to send fees)
     function setInternalBribe(address _int) external onlyOwner {
-        require(_int >= address(0), "zero");
-        internal_bribe = _int;
-    }
+            require(_int >= address(0), "zero");
+            internal_bribe = _int;
+        }
 
     function activateEmergencyMode() external onlyOwner {
         require(emergency == false, "emergency");
@@ -173,7 +189,7 @@ abstract contract Gauge is ReentrancyGuard, Ownable {
 
     ///@notice get total reward for the duration
     function rewardForDuration() external view returns (uint256) {
-        return rewardRate * DURATION;
+        return rewardRate * duration;
     }
 
     function periodFinish() external view returns (uint256) {
@@ -232,14 +248,14 @@ abstract contract Gauge is ReentrancyGuard, Ownable {
 
     function notifyRewardAmount(address token, uint256 reward) external nonReentrant isNotEmergency onlyDistribution updateReward(address(0)) {
         require(token == address(rewardToken), "not rew token");
-        rewardToken.safeTransferFrom(DISTRIBUTION, address(this), reward);
+        rewardToken.safeTransferFrom(distribution, address(this), reward);
 
         if (block.timestamp >= _periodFinish) {
-            rewardRate = reward / DURATION;
+            rewardRate = reward / duration;
         } else {
             uint256 remaining = _periodFinish - block.timestamp;
             uint256 leftover = remaining * rewardRate;
-            rewardRate = (reward + leftover) / DURATION;
+            rewardRate = (reward + leftover) / duration;
         }
 
         // Ensure the provided reward amount is not more than the balance in the contract.
@@ -247,10 +263,10 @@ abstract contract Gauge is ReentrancyGuard, Ownable {
         // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint256 balance = rewardToken.balanceOf(address(this));
-        require(rewardRate <= balance / DURATION, "Provided reward too high");
+        require(rewardRate <= balance / duration, "Provided reward too high");
 
         lastUpdateTime = block.timestamp;
-        _periodFinish = block.timestamp + DURATION;
+        _periodFinish = block.timestamp + duration;
         emit RewardAdded(reward);
     }
 
