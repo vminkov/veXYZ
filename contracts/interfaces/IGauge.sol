@@ -8,4 +8,9 @@ interface IGauge {
     function balanceOf(address _account) external view returns (uint);
     function totalSupply() external view returns (uint);
     function earned(address account) external view returns (uint);
+    function setDistribution(address _distro) external;
+    function activateEmergencyMode() external;
+    function stopEmergencyMode() external;
+    function setInternalBribe(address intbribe) external;
+    function setGaugeRewarder(address _gr) external;
 }
