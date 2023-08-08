@@ -8,6 +8,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
 
 import './interfaces/IBribe.sol';
+import './interfaces/IGauge.sol';
 import "./libraries/Math.sol";
 
 interface IRewarder {
@@ -19,7 +20,7 @@ interface IRewarder {
 }
 
 
-abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable {
+abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGauge {
 
     using SafeERC20 for IERC20;
 
@@ -28,7 +29,7 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable {
 
     IERC20 public rewardToken;
 
-    // TODO unused?
+    // used in the inheriting contracts
     address public target;
 
     // TODO unused?

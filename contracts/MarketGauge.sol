@@ -6,7 +6,11 @@ import './Gauge.sol';
 
 contract MarketGauge is Gauge {
 
-  function claimFees() external nonReentrant returns (uint256) {
+  function claimFees() external {
+    claimMarketFees();
+  }
+
+  function claimMarketFees() public nonReentrant returns (uint256) {
     return abi.decode(_claimFees(), (uint256));
   }
 

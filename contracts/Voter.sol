@@ -9,18 +9,12 @@ import './interfaces/IGaugeFactory.sol';
 import './interfaces/IERC20.sol';
 import './interfaces/IMinter.sol';
 import './interfaces/IMarket.sol';
-import './interfaces/IPairFactory.sol';
 import './interfaces/IVoter.sol';
 import './interfaces/IVoteEscrow.sol';
 import './interfaces/IPermissionsRegistry.sol';
-import './interfaces/IAlgebraFactory.sol';
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-
-interface IHypervisor {
-    function pool() external view returns(address);
-}
 
 contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 

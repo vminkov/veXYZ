@@ -6,7 +6,11 @@ import './Gauge.sol';
 
 contract PairGauge is Gauge {
 
-  function claimFees() external nonReentrant returns (uint256 claimed0, uint256 claimed1) {
+  function claimFees() external {
+    claimPairFees();
+  }
+
+  function claimPairFees() public nonReentrant returns (uint256 claimed0, uint256 claimed1) {
     return abi.decode(_claimFees(), (uint256, uint256));
   }
 
