@@ -17,6 +17,8 @@ import {IVoteEscrow} from "./interfaces/IVoteEscrow.sol";
 /// @author Modified from Nouns DAO (https://github.com/withtally/my-nft-dao-project/blob/main/contracts/ERC721Checkpointable.sol)
 /// @author Modified from THENA (https://github.com/ThenafiBNB/THENA-Contracts/blob/main/contracts/VotingEscrow.sol)
 /// @dev Vote weight decays linearly over time. Lock time cannot be more than `MAXTIME` (1 years).
+
+// TODO XERC20Upgradeable
 contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradeable {
     enum DepositType {
         DEPOSIT_FOR_TYPE,
@@ -88,13 +90,31 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
     /// @dev Current count of token
     uint internal tokenId;
 
+    uint256 public masterChainId;
+    uint128 constant ARBITRUM_ONE = 42161;
+    address public bridge;
+    address public auctionsFactory;
+
+    modifier onlyOnMasterChain() {
+        require(block.chainid == masterChainId, "wrong chain id");
+        _;
+    }
+
+    modifier onlyBridge() {
+        require(msg.sender == bridge, "only bridge");
+        _;
+    }
+
     constructor() {
         _disableInitializers();
     }
 
-    function initialize(address token_addr) external initializer {
+    function initialize(address token_addr, address _bridge, address _auctionsFactory) external initializer {
         __ReentrancyGuard_init();
 
+        masterChainId = ARBITRUM_ONE;
+        bridge = _bridge;
+        auctionsFactory = _auctionsFactory;
         token = token_addr;
         voter = msg.sender;
         team = msg.sender;
@@ -255,7 +275,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
         return _isApprovedOrOwner(_spender, _tokenId);
     }
 
-    /// @dev Exeute transfer of a NFT.
+    /// @dev Execute transfer of a NFT.
     ///      Throws unless `msg.sender` is the current owner, an authorized operator, or the approved
     ///      address for this NFT. (NOTE: `msg.sender` not allowed in internal function so pass `_sender`.)
     ///      Throws if `_to` is the zero address.
@@ -266,7 +286,8 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
         address _to,
         uint _tokenId,
         address _sender
-    ) internal {
+    ) internal onlyOnMasterChain {
+        require(msg.sender == auctionsFactory, "transfer only through an auction");
         require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
         // Check requirements
         require(_isApprovedOrOwner(_sender, _tokenId));
@@ -423,7 +444,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
     /// @param _to The address that will receive the minted tokens.
     /// @param _tokenId The token id to mint.
     /// @return A boolean that indicates if the operation was successful.
-    function _mint(address _to, uint _tokenId) internal returns (bool) {
+    function _mint(address _to, uint _tokenId) internal onlyBridge returns (bool) {
         // Throws if `_to` is zero address
         assert(_to != address(0));
         // checkpoint for gov
@@ -477,7 +498,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
         ownerToNFTokenCount[_from] -= 1;
     }
 
-    function _burn(uint _tokenId) internal {
+    function _burn(uint _tokenId) internal onlyBridge {
         require(_isApprovedOrOwner(msg.sender, _tokenId), "caller is not owner nor approved");
 
         address owner = ownerOf(_tokenId);
@@ -689,7 +710,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
         uint unlock_time,
         LockedBalance memory locked_balance,
         DepositType deposit_type
-    ) internal {
+    ) internal onlyOnMasterChain {
         LockedBalance memory _locked = locked_balance;
         uint supply_before = supply;
 
@@ -807,7 +828,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
 
     /// @notice Withdraw all tokens for `_tokenId`
     /// @dev Only possible if the lock has expired
-    function withdraw(uint _tokenId) external nonReentrant {
+    function withdraw(uint _tokenId) external nonReentrant onlyOnMasterChain {
         assert(_isApprovedOrOwner(msg.sender, _tokenId));
         require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
 
@@ -1071,6 +1092,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
      * @param _tokenId  NFTs ID
      */
     function split(uint[] memory amounts, uint _tokenId) external {
+        require(amounts.length > 0, "zero len amounts input");
 
         // check permission and vote
         require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
@@ -1348,7 +1370,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
         }
     }
 
-    function _delegate(address delegator, address delegatee) internal {
+    function _delegate(address delegator, address delegatee) internal onlyOnMasterChain {
         /// @notice differs from `_delegate()` in `Comp.sol` to use `delegates` override method to simulate auto-delegation
         address currentDelegate = delegates(delegator);
 
