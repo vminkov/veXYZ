@@ -6,7 +6,6 @@ interface IGauge {
     function getReward(address account, address[] memory tokens) external;
     function getReward(address account) external;
     function claimFees() external returns (uint claimed0, uint claimed1);
-    function left(address token) external view returns (uint);
     function rewardRate(address _pair) external view returns (uint);
     function balanceOf(address _account) external view returns (uint);
     function isForPair() external view returns (bool);

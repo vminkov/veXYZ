@@ -506,7 +506,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         // Remove token
         //_removeTokenFrom(msg.sender, _tokenId);
         _removeTokenFrom(owner, _tokenId);
-        
+
         emit Transfer(owner, address(0), _tokenId);
     }
 
@@ -1088,7 +1088,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
      * @param _tokenId  NFTs ID
      */
     function split(uint[] memory amounts, uint _tokenId) external {
-        
+
         // check permission and vote
         require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
         require(_isApprovedOrOwner(msg.sender, _tokenId));
@@ -1099,7 +1099,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         uint end = _locked.end;
         uint value = uint(int256(_locked.amount));
         require(value > 0); // dev: need non-zero value
-        
+
         // reset supply, _deposit_for increase it
         supply = supply - value;
 
@@ -1118,16 +1118,16 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         uint unlock_time = end;
         require(unlock_time > block.timestamp, 'Can only lock until time in the future');
         require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 1 years max');
-        
+
         // mint 
         uint _value = 0;
-        for(i = 0; i < amounts.length; i++){   
+        for(i = 0; i < amounts.length; i++){
             ++tokenId;
             _tokenId = tokenId;
             _mint(_to, _tokenId);
             _value = value * amounts[i] / totalWeight;
             _deposit_for(_tokenId, _value, unlock_time, locked[_tokenId], DepositType.SPLIT_TYPE);
-        }     
+        }
 
     }
 
@@ -1394,7 +1394,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
     ) public {
         require(delegatee != msg.sender);
         require(delegatee != address(0));
-        
+
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 DOMAIN_TYPEHASH,
