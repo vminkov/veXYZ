@@ -51,9 +51,9 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
 
     uint internal index;                                        // gauge index
-    uint internal constant DURATION = 7 days;                   // rewards are released over 7 days
+    uint internal constant DURATION = 14 days;                   // rewards are released over 14 days
     uint public VOTE_DELAY;                                     // delay between votes in seconds
-    uint public constant MAX_VOTE_DELAY = 7 days;               // Max vote delay allowed
+    uint public constant MAX_VOTE_DELAY = 10 days;               // Max vote delay allowed
 
 
     mapping(address => uint) internal supplyIndex;              // gauge    => index
@@ -87,7 +87,9 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     event Whitelisted(address indexed whitelister, address indexed token);
     event Blacklisted(address indexed blacklister, address indexed token);
 
-    constructor() {}
+    constructor() {
+        _disableInitializers();
+    }
 
     function initialize(address __ve, address _factory, address  _gauges, address _bribes) initializer public {
         __Ownable_init();
@@ -356,12 +358,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 if(lastVoted[_tokenId] > _epochTimestamp()) weightsPerEpoch[_time][_pool] -= _votes;
 
                 votes[_tokenId][_pool] -= _votes;
-
-                if (_votes > 0) {
-                    IBribe(internal_bribes[gauges[_pool]])._withdraw(uint256(_votes), _tokenId);
-                    IBribe(external_bribes[gauges[_pool]])._withdraw(uint256(_votes), _tokenId);
-                    _totalWeight += _votes;
-                }
+                _totalWeight += _votes;
                 
                 emit Abstained(_tokenId, _votes);
             }
@@ -432,9 +429,6 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
                 votes[_tokenId][_pool] += _poolWeight;
 
-                IBribe(internal_bribes[_gauge])._deposit(uint256(_poolWeight), _tokenId);
-                IBribe(external_bribes[_gauge])._deposit(uint256(_poolWeight), _tokenId);
-                
                 _usedWeight += _poolWeight;
                 _totalWeight += _poolWeight;
                 emit Voted(msg.sender, _tokenId, _poolWeight);
