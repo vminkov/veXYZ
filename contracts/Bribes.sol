@@ -77,7 +77,7 @@ contract Bribe is ReentrancyGuard {
 
     /// @notice get the last totalSupply (total votes for a pool)
     function totalSupply() external view returns (uint256) {
-        uint256 _currentEpochStart = IMinter(minter).active_period(); // claim until current epoch
+        uint256 _currentEpochStart = getEpochStart(); // claim until current epoch
         return _totalSupply[_currentEpochStart];
     }
 
@@ -116,7 +116,7 @@ contract Bribe is ReentrancyGuard {
     function earned(uint256 tokenId, address _rewardToken) public view returns(uint256){
         uint256 k = 0;
         uint256 reward = 0;
-        uint256 _endTimestamp = IMinter(minter).active_period(); // claim until current epoch
+        uint256 _endTimestamp = getEpochStart(); // claim until current epoch
         address _owner = IVoteEscrow(ve).ownerOf(tokenId);
         uint256 _userLastTime = userTimestamp[_owner][_rewardToken];
 
@@ -145,7 +145,7 @@ contract Bribe is ReentrancyGuard {
     function earned(address _owner, address _rewardToken) public view returns(uint256){
         uint256 k = 0;
         uint256 reward = 0;
-        uint256 _endTimestamp = IMinter(minter).active_period(); // claim until current epoch
+        uint256 _endTimestamp = getEpochStart(); // claim until current epoch
         uint256 _userLastTime = userTimestamp[_owner][_rewardToken];
 
         if(_endTimestamp == _userLastTime){
@@ -173,7 +173,7 @@ contract Bribe is ReentrancyGuard {
     function earnedWithTimestamp(address _owner, address _rewardToken) private view returns(uint256,uint256){
         uint256 k = 0;
         uint256 reward = 0;
-        uint256 _endTimestamp = IMinter(minter).active_period(); // claim until current epoch
+        uint256 _endTimestamp = getEpochStart(); // claim until current epoch
         uint256 _userLastTime = userTimestamp[_owner][_rewardToken];
 
 
@@ -224,7 +224,7 @@ contract Bribe is ReentrancyGuard {
     function deposit(uint256 amount, uint256 tokenId) external nonReentrant {
         require(amount > 0, "Cannot stake 0");
         require(msg.sender == voter);
-        uint256 _startTimestamp = IMinter(minter).active_period() + WEEK;
+        uint256 _startTimestamp = getNextEpochStart();
         uint256 _oldSupply = _totalSupply[_startTimestamp];
         address _owner = IVoteEscrow(ve).ownerOf(tokenId);
         uint256 _lastBalance = _balances[_owner][_startTimestamp];
@@ -240,7 +240,7 @@ contract Bribe is ReentrancyGuard {
     function withdraw(uint256 amount, uint256 tokenId) external nonReentrant {
         require(amount > 0, "Cannot withdraw 0");
         require(msg.sender == voter);
-        uint256 _startTimestamp = IMinter(minter).active_period() + WEEK;
+        uint256 _startTimestamp = getNextEpochStart();
         address _owner = IVoteEscrow(ve).ownerOf(tokenId);
 
         // incase of bribe contract reset in gauge proxy
@@ -330,7 +330,7 @@ contract Bribe is ReentrancyGuard {
         require(isRewardToken[_rewardsToken], "reward token not verified");
         IERC20(_rewardsToken).safeTransferFrom(msg.sender,address(this),reward);
 
-        uint256 _startTimestamp = IMinter(minter).active_period() + WEEK; //period points to the current thursday. Bribes are distributed from next epoch (thursday)
+        uint256 _startTimestamp = getNextEpochStart(); //period points to the current thursday. Bribes are distributed from next epoch (thursday)
         if(firstBribeTimestamp == 0){
             firstBribeTimestamp = _startTimestamp;
         }
@@ -371,7 +371,7 @@ contract Bribe is ReentrancyGuard {
     function recoverERC20AndUpdateData(address tokenAddress, uint256 tokenAmount) external onlyAllowed {
         require(tokenAmount <= IERC20(tokenAddress).balanceOf(address(this)));
 
-        uint256 _startTimestamp = IMinter(minter).active_period() + WEEK;
+        uint256 _startTimestamp = getNextEpochStart();
         uint256 _lastReward = rewardData[tokenAddress][_startTimestamp].rewardsPerEpoch;
         rewardData[tokenAddress][_startTimestamp].rewardsPerEpoch = _lastReward - tokenAmount;
         rewardData[tokenAddress][_startTimestamp].lastUpdateTime = block.timestamp;
