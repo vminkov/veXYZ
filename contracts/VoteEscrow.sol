@@ -4,8 +4,9 @@ pragma solidity 0.8.13;
 import {IERC721, IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+
 import {IERC20} from "./interfaces/IERC20.sol";
-// import {IVeArtProxy} from "./interfaces/IVeArtProxy.sol";
 import {IVoteEscrow} from "./interfaces/IVoteEscrow.sol";
 
 /// @title Voting Escrow
@@ -16,7 +17,7 @@ import {IVoteEscrow} from "./interfaces/IVoteEscrow.sol";
 /// @author Modified from Nouns DAO (https://github.com/withtally/my-nft-dao-project/blob/main/contracts/ERC721Checkpointable.sol)
 /// @author Modified from THENA (https://github.com/ThenafiBNB/THENA-Contracts/blob/main/contracts/VotingEscrow.sol)
 /// @dev Vote weight decays linearly over time. Lock time cannot be more than `MAXTIME` (1 years).
-contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
+contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradeable {
     enum DepositType {
         DEPOSIT_FOR_TYPE,
         CREATE_LOCK_TYPE,
@@ -47,9 +48,9 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         uint[] tokenIds;
     }
 
-    /*//////////////////////////////////////////////////////////////
+    /*------------------------------------------------------------
                                  EVENTS
-    //////////////////////////////////////////////////////////////*/
+    ------------------------------------------------------------*/
 
     event Deposit(
         address indexed provider,
@@ -62,14 +63,13 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
     event Withdraw(address indexed provider, uint tokenId, uint value, uint ts);
     event Supply(uint prevSupply, uint supply);
 
-    /*//////////////////////////////////////////////////////////////
+    /*------------------------------------------------------------
                                CONSTRUCTOR
-    //////////////////////////////////////////////////////////////*/
+    ------------------------------------------------------------*/
 
-    address public immutable token;
+    address public token;
     address public voter;
     address public team;
-    address public artProxy;
 
     mapping(uint => Point) public point_history; // epoch -> unsigned point
 
@@ -88,13 +88,16 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
     /// @dev Current count of token
     uint internal tokenId;
 
-    /// @notice Contract constructor
-    /// @param token_addr `THENA` token address
-    constructor(address token_addr, address art_proxy) {
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address token_addr) external initializer {
+        __ReentrancyGuard_init();
+
         token = token_addr;
         voter = msg.sender;
         team = msg.sender;
-        artProxy = art_proxy;
 
         point_history[0].blk = block.number;
         point_history[0].ts = block.timestamp;
@@ -109,38 +112,18 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         emit Transfer(address(this), address(0), tokenId);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                MODIFIERS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @dev reentrancy guard
-    uint8 internal constant _not_entered = 1;
-    uint8 internal constant _entered = 2;
-    uint8 internal _entered_state = 1;
-    modifier nonreentrant() {
-        require(_entered_state == _not_entered);
-        _entered_state = _entered;
-        _;
-        _entered_state = _not_entered;
-    }
-
-    /*///////////////////////////////////////////////////////////////
+    /*------------------------------------------------------------/
                              METADATA STORAGE
-    //////////////////////////////////////////////////////////////*/
+    ------------------------------------------------------------*/
 
-    string constant public name = "veThena";
-    string constant public symbol = "veTHE";
+    string constant public name = "veIonic";
+    string constant public symbol = "veION";
     string constant public version = "1.0.0";
     uint8 constant public decimals = 18;
 
     function setTeam(address _team) external {
         require(msg.sender == team);
         team = _team;
-    }
-
-    function setArtProxy(address _proxy) external {
-        require(msg.sender == team);
-        artProxy = _proxy;
     }
 
     /// @dev Returns current token URI metadata
@@ -151,9 +134,9 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         // return IVeArtProxy(artProxy)._tokenURI(_tokenId,_balanceOfNFT(_tokenId, block.timestamp),_locked.end,uint(int256(_locked.amount)));
     }
 
-    /*//////////////////////////////////////////////////////////////
+    /*------------------------------------------------------------
                       ERC721 BALANCE/OWNER STORAGE
-    //////////////////////////////////////////////////////////////*/
+    ------------------------------------------------------------*/
 
     /// @dev Mapping from NFT ID to the address that owns it.
     mapping(uint => address) internal idToOwner;
@@ -181,9 +164,9 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         return _balance(_owner);
     }
 
-    /*//////////////////////////////////////////////////////////////
+    /*------------------------------------------------------------
                          ERC721 APPROVAL STORAGE
-    //////////////////////////////////////////////////////////////*/
+    ------------------------------------------------------------*/
 
     /// @dev Mapping from NFT ID to approved address.
     mapping(uint => address) internal idToApprovals;
@@ -206,9 +189,9 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         return (ownerToOperators[_owner])[_operator];
     }
 
-    /*//////////////////////////////////////////////////////////////
+    /*------------------------------------------------------------
                               ERC721 LOGIC
-    //////////////////////////////////////////////////////////////*/
+    ------------------------------------------------------------*/
 
     /// @dev Set or reaffirm the approved address for an NFT. The zero address indicates there is no approved address.
     ///      Throws unless `msg.sender` is the current NFT owner, or an authorized operator of the current owner.
@@ -386,9 +369,9 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         }
     }
 
-    /*//////////////////////////////////////////////////////////////
+    /*------------------------------------------------------------
                               ERC165 LOGIC
-    //////////////////////////////////////////////////////////////*/
+    ------------------------------------------------------------*/
 
     /// @dev Interface identification is specified in ERC-165.
     /// @param _interfaceID Id of the interface
@@ -396,9 +379,9 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         return supportedInterfaces[_interfaceID];
     }
 
-    /*//////////////////////////////////////////////////////////////
+    /*------------------------------------------------------------
                         INTERNAL MINT/BURN LOGIC
-    //////////////////////////////////////////////////////////////*/
+    ------------------------------------------------------------*/
 
     /// @dev Mapping from owner address to mapping of index to tokenIds
     mapping(address => mapping(uint => uint)) internal ownerToNFTokenIdList;
@@ -510,9 +493,9 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         emit Transfer(owner, address(0), _tokenId);
     }
 
-    /*//////////////////////////////////////////////////////////////
+    /*------------------------------------------------------------
                              ESCROW STORAGE
-    //////////////////////////////////////////////////////////////*/
+    ------------------------------------------------------------*/
 
     mapping(uint => uint) public user_point_epoch;
     mapping(uint => Point[1000000000]) public user_point_history; // user -> Point[user_epoch]
@@ -521,14 +504,14 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
     mapping(uint => int128) public slope_changes; // time -> signed slope change
     uint public supply;
 
-    uint internal constant WEEK = 1 weeks;
+    uint internal constant TWO_WEEKS = 2 weeks;
     uint internal constant MAXTIME = 1 * 365 * 86400;
     int128 internal constant iMAXTIME = 1 * 365 * 86400;
     uint internal constant MULTIPLIER = 1 ether;
 
-    /*//////////////////////////////////////////////////////////////
+    /*------------------------------------------------------------
                               ESCROW LOGIC
-    //////////////////////////////////////////////////////////////*/
+    ------------------------------------------------------------*/
 
     /// @notice Get the most recently recorded rate of voting power decrease for `_tokenId`
     /// @param _tokenId token of the NFT
@@ -611,11 +594,11 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
 
         // Go over weeks to fill history and calculate what the current point is
         {
-            uint t_i = (last_checkpoint / WEEK) * WEEK;
+            uint t_i = (last_checkpoint / TWO_WEEKS) * TWO_WEEKS;
             for (uint i = 0; i < 255; ++i) {
                 // Hopefully it won't happen that this won't get used in 5 years!
                 // If it does, users will be able to withdraw but vote weight will be broken
-                t_i += WEEK;
+                t_i += TWO_WEEKS;
                 int128 d_slope = 0;
                 if (t_i > block.timestamp) {
                     t_i = block.timestamp;
@@ -749,7 +732,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
     ///      cannot extend their locktime and deposit for a brand new user
     /// @param _tokenId lock NFT
     /// @param _value Amount to add to user's lock
-    function deposit_for(uint _tokenId, uint _value) external nonreentrant {
+    function deposit_for(uint _tokenId, uint _value) external nonReentrant {
         LockedBalance memory _locked = locked[_tokenId];
 
         require(_value > 0); // dev: need non-zero value
@@ -763,7 +746,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
     /// @param _lock_duration Number of seconds to lock tokens for (rounded down to nearest week)
     /// @param _to Address to deposit
     function _create_lock(uint _value, uint _lock_duration, address _to) internal returns (uint) {
-        uint unlock_time = (block.timestamp + _lock_duration) / WEEK * WEEK; // Locktime is rounded down to weeks
+        uint unlock_time = (block.timestamp + _lock_duration) / TWO_WEEKS * TWO_WEEKS; // Locktime is rounded down to weeks
 
         require(_value > 0); // dev: need non-zero value
         require(unlock_time > block.timestamp, 'Can only lock until time in the future');
@@ -780,7 +763,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
     /// @notice Deposit `_value` tokens for `msg.sender` and lock for `_lock_duration`
     /// @param _value Amount to deposit
     /// @param _lock_duration Number of seconds to lock tokens for (rounded down to nearest week)
-    function create_lock(uint _value, uint _lock_duration) external nonreentrant returns (uint) {
+    function create_lock(uint _value, uint _lock_duration) external nonReentrant returns (uint) {
         return _create_lock(_value, _lock_duration, msg.sender);
     }
 
@@ -788,13 +771,13 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
     /// @param _value Amount to deposit
     /// @param _lock_duration Number of seconds to lock tokens for (rounded down to nearest week)
     /// @param _to Address to deposit
-    function create_lock_for(uint _value, uint _lock_duration, address _to) external nonreentrant returns (uint) {
+    function create_lock_for(uint _value, uint _lock_duration, address _to) external nonReentrant returns (uint) {
         return _create_lock(_value, _lock_duration, _to);
     }
 
     /// @notice Deposit `_value` additional tokens for `_tokenId` without modifying the unlock time
     /// @param _value Amount of tokens to deposit and add to the lock
-    function increase_amount(uint _tokenId, uint _value) external nonreentrant {
+    function increase_amount(uint _tokenId, uint _value) external nonReentrant {
         assert(_isApprovedOrOwner(msg.sender, _tokenId));
 
         LockedBalance memory _locked = locked[_tokenId];
@@ -808,11 +791,11 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
 
     /// @notice Extend the unlock time for `_tokenId`
     /// @param _lock_duration New number of seconds until tokens unlock
-    function increase_unlock_time(uint _tokenId, uint _lock_duration) external nonreentrant {
+    function increase_unlock_time(uint _tokenId, uint _lock_duration) external nonReentrant {
         assert(_isApprovedOrOwner(msg.sender, _tokenId));
 
         LockedBalance memory _locked = locked[_tokenId];
-        uint unlock_time = (block.timestamp + _lock_duration) / WEEK * WEEK; // Locktime is rounded down to weeks
+        uint unlock_time = (block.timestamp + _lock_duration) / TWO_WEEKS * TWO_WEEKS; // Locktime is rounded down to weeks
 
         require(_locked.end > block.timestamp, 'Lock expired');
         require(_locked.amount > 0, 'Nothing is locked');
@@ -824,7 +807,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
 
     /// @notice Withdraw all tokens for `_tokenId`
     /// @dev Only possible if the lock has expired
-    function withdraw(uint _tokenId) external nonreentrant {
+    function withdraw(uint _tokenId) external nonReentrant {
         assert(_isApprovedOrOwner(msg.sender, _tokenId));
         require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
 
@@ -850,9 +833,9 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         emit Supply(supply_before, supply_before - value);
     }
 
-    /*///////////////////////////////////////////////////////////////
+    /*------------------------------------------------------------/
                            GAUGE VOTING STORAGE
-    //////////////////////////////////////////////////////////////*/
+    ------------------------------------------------------------*/
 
     // The following ERC20/minime-compatible methods are not real balanceOf and supply!
     // They measure the weights for the purpose of voting, so they don't represent
@@ -996,9 +979,9 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
     /// @return Total voting power at that time
     function _supply_at(Point memory point, uint t) internal view returns (uint) {
         Point memory last_point = point;
-        uint t_i = (last_point.ts / WEEK) * WEEK;
+        uint t_i = (last_point.ts / TWO_WEEKS) * TWO_WEEKS;
         for (uint i = 0; i < 255; ++i) {
-            t_i += WEEK;
+            t_i += TWO_WEEKS;
             int128 d_slope = 0;
             if (t_i > t) {
                 t_i = t;
@@ -1032,9 +1015,9 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         return _supply_at(last_point, t);
     }
 
-    /*///////////////////////////////////////////////////////////////
+    /*------------------------------------------------------------/
                             GAUGE VOTING LOGIC
-    //////////////////////////////////////////////////////////////*/
+    ------------------------------------------------------------*/
 
     mapping(uint => uint) public attachments;
     mapping(uint => bool) public voted;
@@ -1131,9 +1114,9 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
 
     }
 
-    /*///////////////////////////////////////////////////////////////
+    /*------------------------------------------------------------/
                             DAO VOTING STORAGE
-    //////////////////////////////////////////////////////////////*/
+    ------------------------------------------------------------*/
 
     /// @notice The EIP-712 typehash for the contract's domain
     bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
@@ -1235,9 +1218,9 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes {
         return totalSupplyAtT(timestamp);
     }
 
-    /*///////////////////////////////////////////////////////////////
+    /*------------------------------------------------------------/
                              DAO VOTING LOGIC
-    //////////////////////////////////////////////////////////////*/
+    ------------------------------------------------------------*/
 
     function _moveTokenDelegates(
         address srcRep,
