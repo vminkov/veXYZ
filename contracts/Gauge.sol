@@ -9,7 +9,6 @@ import { ReentrancyGuardUpgradeable } from "openzeppelin-contracts-upgradeable/c
 
 import './interfaces/IBribe.sol';
 import './interfaces/IGauge.sol';
-import "./libraries/Math.sol";
 
 interface IRewarder {
     function onReward(
@@ -171,7 +170,8 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
 
     ///@notice last time reward
     function lastTimeRewardApplicable() public view returns (uint256) {
-        return Math.min(block.timestamp, _periodFinish);
+        // return min
+        return block.timestamp < _periodFinish ? block.timestamp : _periodFinish;
     }
 
     ///@notice  reward for a sinle token
