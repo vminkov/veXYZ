@@ -447,8 +447,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     --------------------------------------------------------------------------------
     ----------------------------------------------------------------------------- */
     /// @notice create multiple gauges
-    function createGauges(address[] memory _markets, uint256[] memory _gaugeTypes) external nonReentrant returns(address[] memory, address[] memory, address[] memory)  {
-        require(_markets.length == _gaugeTypes.length);
+    function createGauges(address[] memory _markets) external nonReentrant returns(address[] memory, address[] memory, address[] memory)  {
         require(_markets.length <= 10);
         address[] memory _gauge = new address[](_markets.length);
         address[] memory _int = new address[](_markets.length);
@@ -462,21 +461,17 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
      /// @notice create a gauge  
-    function createGauge(address _market, uint256 _gaugeType) external nonReentrant returns (address _gauge, address _internal_bribe, address _external_bribe)  {
-        (_gauge, _internal_bribe, _external_bribe) = _createGauge(_market, _gaugeType);
+    function createGauge(address _market) external nonReentrant returns (address _gauge, address _internal_bribe, address _external_bribe)  {
+        (_gauge, _internal_bribe, _external_bribe) = _createGauge(_market);
     }
 
     /// @notice create a gauge
     /// @param  _target  gauge target address
-    /// @param  _gaugeType  the type of the gauge you want to create
-    /// @dev    To create stable/Volatile pair gaugeType = 0, Concentrated liqudity = 1, ...
-    ///         Make sure to use the corrcet gaugeType or it will fail
 
-    function _createGauge(address _target, uint256 _gaugeType) internal returns (address _gauge, address _internal_bribe, address _external_bribe) {
-        require(_gaugeType < factories.length, "gaugetype");
+    function _createGauge(address _target) internal VoterAdmin returns (address _gauge, address _internal_bribe, address _external_bribe) {
         require(gauges[_target] == address(0x0), "!exists");
-        address _factory = factories[_gaugeType];
-        address _gaugeFactory = gaugeFactories[_gaugeType];
+        address _factory = factories[0];
+        address _gaugeFactory = gaugeFactories[0];
         require(_factory != address(0));
         require(_gaugeFactory != address(0));
 
@@ -491,7 +486,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         // create internal and external bribe
         address _owner = owner();
-        string memory _type =  string.concat("Ionic market Fees: ", IERC20(_target).symbol() );
+        string memory _type =  string.concat("Ionic market fees: ", IERC20(_target).symbol() );
         _internal_bribe = IBribeFactory(bribeFactory).createBribe(_owner, _target, _type);
 
         _type = string.concat("Ionic Bribes: ", IERC20(_target).symbol() );
@@ -500,7 +495,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // create gauge
         _gauge = IGaugeFactory(_gaugeFactory).createGauge(base, _ve, _target, address(this), _internal_bribe, _external_bribe);
 
-        // approve spending for $ion
+        // approve spending for $ion - used in IGauge(_gauge).notifyRewardAmount()
         IERC20(base).approve(_gauge, type(uint).max);
 
         // save data
