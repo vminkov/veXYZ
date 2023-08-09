@@ -18,7 +18,6 @@ import {XERC721Upgradeable} from "./XERC721Upgradeable.sol";
 /// @author Modified from THENA (https://github.com/ThenafiBNB/THENA-Contracts/blob/main/contracts/VotingEscrow.sol)
 /// @dev Vote weight decays linearly over time. Lock time cannot be more than `MAXTIME` (1 years).
 
-// TODO XERC20Upgradeable
 contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpgradeable {
     enum DepositType {
         DEPOSIT_FOR_TYPE,
