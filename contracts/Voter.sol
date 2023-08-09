@@ -18,17 +18,15 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 
 contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
-    
-    bool internal initflag;
-
     address public _ve;                                         // the ve token that governs these contracts
     address public factory;                                     // classic stable and volatile Pair Factory
     address[] public factories;                                 // Array with all the pair factories
-    address internal base;                                      // $the token
+    address internal base;                                      // $ion token
     address public gaugeFactory;                                // gauge factory
     address[] public gaugeFactories;                            // array with all the gauge factories
     address public bribeFactory;                                // bribe factory (internal and external)
-    address public minter;                                      // minter mints $the each epoch
+    address public minter;                                      // minter mints $ion each epoch
+    //VoterRolesAuthority
     address public permissionRegistry;                          // registry to check accesses
     address[] public pools;                                     // all pools viable for incentives
 
@@ -40,7 +38,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
 
     mapping(address => uint) internal supplyIndex;              // gauge    => index
-    mapping(address => uint) public claimable;                  // gauge    => claimable $the
+    mapping(address => uint) public claimable;                  // gauge    => claimable $ion
     mapping(address => address) public gauges;                  // pool     => gauge
     mapping(address => uint) public gaugesDistributionTimestamp;// gauge    => last Distribution Time
     mapping(address => address) public poolForGauge;            // gauge    => pool
@@ -53,7 +51,6 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(uint => uint) public usedWeights;                   // nft      => total voting weight of user
     mapping(uint => uint) public lastVoted;                     // nft      => timestamp of last vote
     mapping(address => bool) public isGauge;                    // gauge    => boolean [is a gauge?]
-    mapping(address => bool) public isWhitelisted;              // token    => boolean [is an allowed token?]
     mapping(address => bool) public isAlive;                    // gauge    => boolean [is the gauge alive?]
     mapping(address => bool) public isFactory;                  // factory  => boolean [the pair factory exists?]
     mapping(address => bool) public isGaugeFactory;             // g.factory=> boolean [the gauge factory exists?]
@@ -74,7 +71,14 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         _disableInitializers();
     }
 
-    function initialize(address __ve, address _factory, address  _gauges, address _bribes) initializer public {
+    function initialize(
+        address __ve,
+        address _factory,
+        address  _gauges,
+        address _bribes,
+        address _permissionsRegistry,
+        address _minter
+    ) initializer public {
         __Ownable_init();
         __ReentrancyGuard_init();
 
@@ -92,10 +96,10 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bribeFactory = _bribes;
 
         minter = msg.sender;
-        permissionRegistry = msg.sender;
+        minter = _minter;
+        permissionRegistry = _permissionsRegistry;
 
         VOTE_DELAY = 0;
-        initflag = false;
     }
 
  
@@ -119,21 +123,6 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     function isGovernor() internal view returns (bool) {
         return IPermissionsRegistry(permissionRegistry).hasRole("GOVERNANCE",msg.sender);
-    }
-
-    
-    /// @notice initialize the voter contract 
-    /// @param  _tokens array of tokens to whitelist
-    /// @param  _minter the minter of $the
-    function _init(address[] memory _tokens, address _permissionsRegistry, address _minter) external {
-        require(msg.sender == minter || IPermissionsRegistry(permissionRegistry).hasRole("VOTER_ADMIN",msg.sender));
-        require(!initflag);
-        for (uint i = 0; i < _tokens.length; i++) {
-            _whitelist(_tokens[i]);
-        }
-        minter = _minter;
-        permissionRegistry = _permissionsRegistry;
-        initflag = true;
     }
 
     /* -----------------------------------------------------------------------------
@@ -204,14 +193,12 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         external_bribes[_gauge] = _external;
     }
     
-    
     /// @notice Increase gauge approvals if max is type(uint).max is reached    [very long run could happen]
     function increaseGaugeApprovals(address _gauge) external VoterAdmin {
         require(isGauge[_gauge]);
         IERC20(base).approve(_gauge, 0);
         IERC20(base).approve(_gauge, type(uint).max);
     }
-
     
     function addFactory(address _pairFactory, address _gaugeFactory) external VoterAdmin {
         require(_pairFactory != address(0), 'addr 0');
@@ -251,8 +238,6 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         isFactory[oldPF] = false;
         isGaugeFactory[oldGF] = false;
     }
-
-    
     
     /* -----------------------------------------------------------------------------
     --------------------------------------------------------------------------------
@@ -261,35 +246,6 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     --------------------------------------------------------------------------------
     --------------------------------------------------------------------------------
     ----------------------------------------------------------------------------- */
-    
-    
-    /// @notice Whitelist a token for gauge creation
-    function whitelist(address[] memory _token) external Governance {
-        uint256 i = 0;
-        for(i = 0; i < _token.length; i++){
-            _whitelist(_token[i]);
-        }
-    }
-       
-    function _whitelist(address _token) private {
-        require(!isWhitelisted[_token]);
-        isWhitelisted[_token] = true;
-        emit Whitelisted(msg.sender, _token);
-    }
-    
-    /// @notice Blacklist a malicious token
-    function blacklist(address[] memory _token) external Governance {
-        uint256 i = 0;
-        for(i = 0; i < _token.length; i++){
-            _blacklist(_token[i]);
-        }
-    }
-       
-    function _blacklist(address _token) private {
-        require(isWhitelisted[_token]);
-        isWhitelisted[_token] = false;
-        emit Blacklisted(msg.sender, _token);
-    }
 
      /// @notice Kill a malicious gauge 
     /// @param  _gauge gauge to kill
@@ -309,7 +265,6 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         supplyIndex[_gauge] = index;
         emit GaugeRevived(_gauge);
     }
-    
 
     /* -----------------------------------------------------------------------------
     --------------------------------------------------------------------------------
@@ -379,8 +334,8 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     
     /// @notice Vote for pools
     /// @param  _tokenId    veNFT tokenID used to vote
-    /// @param  _poolVote   array of LPs addresses to vote  (eg.: [sAMM usdc-usdt   , sAMM busd-usdt, vAMM wbnb-the ,...])
-    /// @param  _weights    array of weights for each LPs   (eg.: [10               , 90            , 45             ,...])  
+    /// @param  _poolVote   array of gauges target addresses
+    /// @param  _weights    array of weights for each gauge target
     function vote(uint _tokenId, address[] calldata _poolVote, uint256[] calldata _weights) external nonReentrant {
         _voteDelay(_tokenId);
         require(IVoteEscrow(_ve).isApprovedOrOwner(msg.sender, _tokenId));
@@ -496,8 +451,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     --------------------------------------------------------------------------------
     ----------------------------------------------------------------------------- */
     /// @notice create multiple gauges
-    function createGauges(address[] memory _pool, uint256[] memory _gaugeTypes) external nonReentrant returns(address[] memory, address[] memory, address[] memory)  {
-        require(_pool.length == _gaugeTypes.length);
+    function createGauges(address[] memory _pool) external nonReentrant returns(address[] memory, address[] memory, address[] memory)  {
         require(_pool.length <= 10);
         address[] memory _gauge = new address[](_pool.length);
         address[] memory _int = new address[](_pool.length);
@@ -505,27 +459,23 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         uint i = 0;
         for(i; i < _pool.length; i++){
-            (_gauge[i], _int[i], _ext[i]) = _createGauge(_pool[i], _gaugeTypes[i]);
+            (_gauge[i], _int[i], _ext[i]) = _createGauge(_pool[i]);
         }
         return (_gauge, _int, _ext);
     }
 
      /// @notice create a gauge  
-    function createGauge(address _pool, uint256 _gaugeType) external nonReentrant returns (address _gauge, address _internal_bribe, address _external_bribe)  {
-        (_gauge, _internal_bribe, _external_bribe) = _createGauge(_pool, _gaugeType);
+    function createGauge(address _pool) external nonReentrant returns (address _gauge, address _internal_bribe, address _external_bribe)  {
+        (_gauge, _internal_bribe, _external_bribe) = _createGauge(_pool);
     }
 
     /// @notice create a gauge
     /// @param  _target  gauge target address
-    /// @param  _gaugeType  the type of the gauge you want to create
-    /// @dev    To create stable/Volatile pair gaugeType = 0, Concentrated liqudity = 1, ...
-    ///         Make sure to use the corrcet gaugeType or it will fail
 
-    function _createGauge(address _target, uint256 _gaugeType) internal returns (address _gauge, address _internal_bribe, address _external_bribe) {
-        require(_gaugeType < factories.length, "gaugetype");
+    function _createGauge(address _target) internal VoterAdmin returns (address _gauge, address _internal_bribe, address _external_bribe) {
         require(gauges[_target] == address(0x0), "!exists");
-        address _factory = factories[_gaugeType];
-        address _gaugeFactory = gaugeFactories[_gaugeType];
+        address _factory = factories[0];
+        address _gaugeFactory = gaugeFactories[0];
         require(_factory != address(0));
         require(_gaugeFactory != address(0));
 
@@ -540,7 +490,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         // create internal and external bribe
         address _owner = owner();
-        string memory _type =  string.concat("Ionic market Fees: ", IERC20(_target).symbol() );
+        string memory _type =  string.concat("Ionic market fees: ", IERC20(_target).symbol() );
         _internal_bribe = IBribeFactory(bribeFactory).createBribe(_owner, _target, _type);
 
         _type = string.concat("Ionic Bribes: ", IERC20(_target).symbol() );
@@ -548,8 +498,8 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         // create gauge
         _gauge = IGaugeFactory(_gaugeFactory).createGauge(base, _ve, _target, address(this), _internal_bribe, _external_bribe);
-     
-        // approve spending for $the
+
+        // approve spending for $ion - used in IGauge(_gauge).notifyRewardAmount()
         IERC20(base).approve(_gauge, type(uint).max);
 
         // save data
@@ -724,7 +674,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ----------------------------------------------------------------------------- */
 
     /// @notice update info for gauges
-    /// @dev    this function track the gauge index to emit the correct $the amount after the distribution
+    /// @dev    this function track the gauge index to emit the correct $ion amount after the distribution
     function _updateForAfterDistribution(address _gauge) private {
         address _pool = poolForGauge[_gauge];
         uint256 _time = _epochTimestamp() - 604800;
