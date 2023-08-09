@@ -3,8 +3,9 @@ pragma solidity 0.8.13;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import { IERC721Upgradeable, IERC721MetadataUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/IERC721MetadataUpgradeable.sol";
+import { Ownable2StepUpgradeable } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
-abstract contract XERC721Upgradeable is ERC721Upgradeable {
+abstract contract XERC721Upgradeable is ERC721Upgradeable, Ownable2StepUpgradeable {
   event BridgeAdded(address indexed bridge);
   event BridgeRemoved(address indexed bridge);
 
@@ -13,13 +14,12 @@ abstract contract XERC721Upgradeable is ERC721Upgradeable {
   constructor() {}
 
   function initialize(address _owner, string memory _name, string memory _symbol) public initializer {
+    __Ownable_init();
+    __Ownable2Step_init();
+    __ERC721_init(_name, _symbol);
     __XERC721_init();
-    __ERC20_init(_name, _symbol);
-    __ERC20Permit_init(_name);
-    __ProposedOwnable_init();
 
-    // Set specified owner
-    _setOwner(_owner);
+    _transferOwnership(_owner);
   }
 
   function __XERC721_init() internal onlyInitializing {
@@ -55,12 +55,12 @@ abstract contract XERC721Upgradeable is ERC721Upgradeable {
     _whitelistedBridges[_bridge] = false;
   }
 
-  function mint(address _to, uint256 _amount) public onlyBridge {
-    _mint(_to, _amount);
+  function mint(address _to, uint256 _tokenId) public onlyBridge {
+    _mint(_to, _tokenId);
   }
 
-  function burn(address _from, uint256 _amount) public onlyBridge {
-    _burn(_from, _amount);
+  function burn(uint256 _tokenId) public onlyBridge {
+    _burn(_tokenId);
   }
 
   uint256[49] private __GAP; // gap for upgrade safety

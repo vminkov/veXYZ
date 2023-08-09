@@ -92,16 +92,10 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
 
     uint256 public masterChainId;
     uint128 constant ARBITRUM_ONE = 42161;
-    address public bridge;
     address public auctionsFactory;
 
     modifier onlyOnMasterChain() {
         require(block.chainid == masterChainId, "wrong chain id");
-        _;
-    }
-
-    modifier onlyBridge() {
-        require(msg.sender == bridge, "only bridge");
         _;
     }
 
@@ -113,12 +107,16 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
         __ERC721_init(name_, symbol_);
     }
 
-    function initialize(address token_addr, address _bridge, address _auctionsFactory) external initializer {
+    function initialize(address token_addr, address _auctionsFactory) external initializer {
         __ReentrancyGuard_init();
+        __Ownable_init();
+        __Ownable2Step_init();
         __ERC721_init("veIonic", "veION");
+        __XERC721_init();
+
+        _transferOwnership(msg.sender);
 
         masterChainId = ARBITRUM_ONE;
-        bridge = _bridge;
         auctionsFactory = _auctionsFactory;
         token = token_addr;
         voter = msg.sender;
