@@ -455,7 +455,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         uint i = 0;
         for(i; i < _markets.length; i++){
-            (_gauge[i], _int[i], _ext[i]) = _createGauge(_markets[i], _gaugeTypes[i]);
+            (_gauge[i], _int[i], _ext[i]) = _createGauge(_markets[i]);
         }
         return (_gauge, _int, _ext);
     }
@@ -581,7 +581,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @dev    the function is called by the minter each epoch. Anyway anyone can top up some extra rewards.
     /// @param  amount  amount to distribute
     function notifyRewardAmount(uint amount) external {
-        require(msg.sender == minter);
+        //require(msg.sender == owner());
         _safeTransferFrom(base, msg.sender, address(this), amount);     // transfer the distro in
         uint _totalWeight = totalWeightAt(_epochTimestamp() - 604800);   // minter call notify after updates active_period, loads votes - 1 week
         uint256 _ratio = 0;

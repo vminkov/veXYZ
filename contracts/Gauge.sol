@@ -34,7 +34,6 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
     // TODO unused?
     address public ve;
     address public distribution;
-    address public gaugeRewarder;
     address public internal_bribe;
     address public external_bribe;
 
@@ -121,12 +120,6 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
         require(_distribution != address(0), "zero addr");
         require(_distribution != distribution, "same addr");
         distribution = _distribution;
-    }
-
-    ///@notice set gauge rewarder address
-    function setGaugeRewarder(address _gaugeRewarder) external onlyOwner {
-        require(_gaugeRewarder != gaugeRewarder, "same addr");
-        gaugeRewarder = _gaugeRewarder;
     }
 
     ///@notice set new internal bribe contract (where to send fees)
@@ -216,10 +209,6 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
             rewardToken.safeTransfer(_user, reward);
             emit Harvest(_user, reward);
         }
-
-        if (gaugeRewarder != address(0)) {
-            IRewarder(gaugeRewarder).onReward(_user, _user, _balances[_user]);
-        }
     }
 
     ///@notice User harvest function
@@ -229,10 +218,6 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
             rewards[msg.sender] = 0;
             rewardToken.safeTransfer(msg.sender, reward);
             emit Harvest(msg.sender, reward);
-        }
-
-        if (gaugeRewarder != address(0)) {
-            IRewarder(gaugeRewarder).onReward(msg.sender, msg.sender, _balances[msg.sender]);
         }
     }
 
