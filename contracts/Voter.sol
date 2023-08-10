@@ -50,7 +50,14 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
   mapping(address => bool) public isFactory; // factory  => boolean [the pair factory exists?]
   mapping(address => bool) public isGaugeFactory; // g.factory=> boolean [the gauge factory exists?]
 
-  event GaugeCreated(
+  event PairGaugeCreated(
+    address indexed gauge,
+    address creator,
+    address internal_bribe,
+    address indexed external_bribe,
+    address indexed market
+  );
+  event MarketGaugeCreated(
     address indexed gauge,
     address creator,
     address internal_bribe,
@@ -442,7 +449,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     --------------------------------------------------------------------------------
     ----------------------------------------------------------------------------- */
   /// @notice create multiple gauges
-  function createGauges(
+  function createPairGauges(
     address[] memory _markets
   ) external nonReentrant returns (address[] memory, address[] memory, address[] memory) {
     require(_markets.length <= 10);
@@ -452,22 +459,46 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     uint i = 0;
     for (i; i < _markets.length; i++) {
-      (_gauge[i], _int[i], _ext[i]) = _createGauge(_markets[i]);
+      (_gauge[i], _int[i], _ext[i]) = _createPairGauge(_markets[i]);
+    }
+    return (_gauge, _int, _ext);
+  }
+
+  /// @notice create multiple gauges
+  function createMarketGauges(
+    address[] memory _markets,
+    address[] memory _flywheels
+  ) external nonReentrant returns (address[] memory, address[] memory, address[] memory) {
+    require(_markets.length <= 10);
+    address[] memory _gauge = new address[](_markets.length);
+    address[] memory _int = new address[](_markets.length);
+    address[] memory _ext = new address[](_markets.length);
+
+    uint i = 0;
+    for (i; i < _markets.length; i++) {
+      (_gauge[i], _int[i], _ext[i]) = _createMarketGauge(_markets[i], _flywheels[i]);
     }
     return (_gauge, _int, _ext);
   }
 
   /// @notice create a gauge
-  function createGauge(
+  function createPairGauge(
     address _market
   ) external nonReentrant returns (address _gauge, address _internal_bribe, address _external_bribe) {
-    (_gauge, _internal_bribe, _external_bribe) = _createGauge(_market);
+    (_gauge, _internal_bribe, _external_bribe) = _createPairGauge(_market);
+  }
+
+  /// @notice create a gauge
+  function createMarketGauge(
+    address _market,
+    address _flywheel
+  ) external nonReentrant returns (address _gauge, address _internal_bribe, address _external_bribe) {
+    (_gauge, _internal_bribe, _external_bribe) = _createMarketGauge(_market, _flywheel);
   }
 
   /// @notice create a gauge
   /// @param  _target  gauge target address
-
-  function _createGauge(
+  function _createPairGauge(
     address _target
   ) internal VoterAdmin returns (address _gauge, address _internal_bribe, address _external_bribe) {
     require(gauges[_target] == address(0x0), "!exists");
@@ -492,7 +523,6 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     _type = string.concat("Ionic Bribes: ", IERC20(_target).symbol());
     _external_bribe = IBribeFactory(bribeFactory).createBribe(_owner, _target, _type);
 
-    // TODO market gauges
     // create gauge
     _gauge = IGaugeFactory(_gaugeFactory).createPairGauge(
       base,
@@ -518,7 +548,60 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // update index
     supplyIndex[_gauge] = index; // new users are set to the default global state
 
-    emit GaugeCreated(_gauge, msg.sender, _internal_bribe, _external_bribe, _target);
+    emit PairGaugeCreated(_gauge, msg.sender, _internal_bribe, _external_bribe, _target);
+  }
+
+
+  /// @notice create a gauge
+  /// @param  _target  gauge target address
+  function _createMarketGauge(
+    address _target,
+    address _flywheel
+  ) internal VoterAdmin returns (address, address, address) {
+    require(gauges[_target] == address(0x0), "!exists");
+    address _factory = factories[0];
+    address _gaugeFactory = gaugeFactories[0];
+    require(_factory != address(0));
+    require(_gaugeFactory != address(0));
+
+    // gov can create for any target, even non-Ionic pairs
+    if (!isGovernor()) {
+      // TODO verify that the target is an Ionic market in case the caller is not an admin
+      revert("TODO verify that the target is an Ionic market in case the caller is not an admin");
+    }
+
+    address _internal_bribe;
+    address _external_bribe;
+
+    // create gauge
+    address _gauge = IGaugeFactory(_gaugeFactory).createMarketGauge(
+      _flywheel,
+      base,
+      _ve,
+      _target,
+      address(this),
+      _internal_bribe,
+      _external_bribe
+    );
+
+    // approve spending for $ion - used in IGauge(_gauge).notifyRewardAmount()
+    IERC20(base).approve(_gauge, type(uint).max);
+
+    // save data
+    internal_bribes[_gauge] = _internal_bribe;
+    external_bribes[_gauge] = _external_bribe;
+    gauges[_target] = _gauge;
+    marketForGauge[_gauge] = _target;
+    isGauge[_gauge] = true;
+    isAlive[_gauge] = true;
+    markets.push(_target);
+
+    // update index
+    supplyIndex[_gauge] = index; // new users are set to the default global state
+
+    emit MarketGaugeCreated(_gauge, msg.sender, _internal_bribe, _external_bribe, _target);
+
+    return (_gauge, _internal_bribe, _external_bribe);
   }
 
   /* -----------------------------------------------------------------------------
