@@ -492,8 +492,9 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     _type = string.concat("Ionic Bribes: ", IERC20(_target).symbol());
     _external_bribe = IBribeFactory(bribeFactory).createBribe(_owner, _target, _type);
 
+    // TODO market gauges
     // create gauge
-    _gauge = IGaugeFactory(_gaugeFactory).createGauge(
+    _gauge = IGaugeFactory(_gaugeFactory).createPairGauge(
       base,
       _ve,
       _target,

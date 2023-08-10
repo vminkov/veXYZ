@@ -53,14 +53,14 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
     _disableInitializers();
   }
 
-  function initialize(
+  function __Gauge_init(
     address _rewardToken,
     address _ve,
     address _target,
     address _distribution,
     address _internal_bribe,
     address _external_bribe
-  ) external initializer {
+  ) internal {
     __Ownable_init();
     __ReentrancyGuard_init();
 

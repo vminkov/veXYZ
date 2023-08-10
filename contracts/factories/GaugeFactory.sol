@@ -7,6 +7,7 @@ import { TransparentUpgradeableProxy } from "@openzeppelin/contracts/proxy/trans
 import "../VoterRolesAuthority.sol";
 import "../interfaces/IGaugeFactory.sol";
 import "../MarketGauge.sol";
+import "../PairGauge.sol";
 
 // TODO SafeOwnableUpgradeable?
 contract GaugeFactory is IGaugeFactory, OwnableUpgradeable {
@@ -56,7 +57,7 @@ contract GaugeFactory is IGaugeFactory, OwnableUpgradeable {
     admin = adminSlot.value;
   }
 
-  function createGauge(
+  function createPairGauge(
     address _rewardToken,
     address _ve,
     address _token,
@@ -65,7 +66,23 @@ contract GaugeFactory is IGaugeFactory, OwnableUpgradeable {
     address _external_bribe
   ) external returns (address) {
     TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(gaugeLogic), _getProxyAdmin(), "");
-    Gauge(address(proxy)).initialize(_rewardToken, _ve, _token, _distribution, _internal_bribe, _external_bribe);
+    PairGauge(address(proxy)).initialize(_rewardToken, _ve, _token, _distribution, _internal_bribe, _external_bribe);
+    last_gauge = address(proxy);
+    _gauges.push(last_gauge);
+    return last_gauge;
+  }
+
+  function createMarketGauge(
+    address _flywheel,
+    address _rewardToken,
+    address _ve,
+    address _token,
+    address _distribution,
+    address _internal_bribe,
+    address _external_bribe
+  ) external returns (address) {
+    TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(gaugeLogic), _getProxyAdmin(), "");
+    MarketGauge(address(proxy)).initialize(_flywheel, _rewardToken, _ve, _token, _distribution, _internal_bribe, _external_bribe);
     last_gauge = address(proxy);
     _gauges.push(last_gauge);
     return last_gauge;
