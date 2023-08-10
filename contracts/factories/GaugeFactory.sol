@@ -82,7 +82,15 @@ contract GaugeFactory is IGaugeFactory, OwnableUpgradeable {
     address _external_bribe
   ) external returns (address) {
     TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(gaugeLogic), _getProxyAdmin(), "");
-    MarketGauge(address(proxy)).initialize(_flywheel, _rewardToken, _ve, _token, _distribution, _internal_bribe, _external_bribe);
+    MarketGauge(address(proxy)).initialize(
+      _flywheel,
+      _rewardToken,
+      _ve,
+      _token,
+      _distribution,
+      _internal_bribe,
+      _external_bribe
+    );
     last_gauge = address(proxy);
     _gauges.push(last_gauge);
     return last_gauge;

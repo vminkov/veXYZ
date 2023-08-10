@@ -551,7 +551,6 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     emit PairGaugeCreated(_gauge, msg.sender, _internal_bribe, _external_bribe, _target);
   }
 
-
   /// @notice create a gauge
   /// @param  _target  gauge target address
   function _createMarketGauge(

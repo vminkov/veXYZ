@@ -37,14 +37,7 @@ contract PairGauge is Gauge {
     address _internal_bribe,
     address _external_bribe
   ) external initializer {
-    __Gauge_init(
-      _rewardToken,
-      _ve,
-      _target,
-      _distribution,
-      _internal_bribe,
-      _external_bribe
-    );
+    __Gauge_init(_rewardToken, _ve, _target, _distribution, _internal_bribe, _external_bribe);
     rewardToken = IERC20(_rewardToken);
     duration = 14 days; // distro time
   }
