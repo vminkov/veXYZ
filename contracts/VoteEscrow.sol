@@ -100,11 +100,6 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
         _;
     }
 
-    modifier onlyBridge() {
-        require(msg.sender == bridge, "only bridge");
-        _;
-    }
-
     constructor() {
         _disableInitializers();
     }
@@ -444,7 +439,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
     /// @param _to The address that will receive the minted tokens.
     /// @param _tokenId The token id to mint.
     /// @return A boolean that indicates if the operation was successful.
-    function _mint(address _to, uint _tokenId) internal onlyBridge returns (bool) {
+    function _mint(address _to, uint _tokenId) internal returns (bool) {
         // Throws if `_to` is zero address
         assert(_to != address(0));
         // checkpoint for gov
@@ -498,7 +493,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
         ownerToNFTokenCount[_from] -= 1;
     }
 
-    function _burn(uint _tokenId) internal onlyBridge {
+    function _burn(uint _tokenId) internal {
         require(_isApprovedOrOwner(msg.sender, _tokenId), "caller is not owner nor approved");
 
         address owner = ownerOf(_tokenId);
