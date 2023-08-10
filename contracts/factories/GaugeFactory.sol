@@ -98,14 +98,6 @@ contract GaugeFactory is IGaugeFactory, OwnableUpgradeable {
         }
     }
 
-    function setGaugeRewarder(address[] memory _rewarder) external onlyAllowed {
-        require(_gauges.length == _rewarder.length);
-        uint i = 0;
-        for ( i ; i < _gauges.length; i++){
-            IGauge(_gauges[i]).setGaugeRewarder(_rewarder[i]);
-        }
-    }
-
     function setDistribution(address distro) external onlyAllowed {
         uint i = 0;
         for ( i ; i < _gauges.length; i++){

@@ -12,5 +12,4 @@ interface IGauge {
     function activateEmergencyMode() external;
     function stopEmergencyMode() external;
     function setInternalBribe(address intbribe) external;
-    function setGaugeRewarder(address _gr) external;
 }
