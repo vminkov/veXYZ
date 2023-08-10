@@ -77,7 +77,7 @@ contract Bribe is ReentrancyGuardUpgradeable, IBribe {
     return rewardTokens.length;
   }
 
-  /// @notice get the last totalSupply (total votes for a market)
+  /// @notice get the last totalSupply (total votes for a target)
   function totalSupply() external view returns (uint256) {
     uint256 _currentEpochStart = getEpochStart(); // claim until current epoch
     return _totalSupply[_currentEpochStart];
