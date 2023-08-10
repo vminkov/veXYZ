@@ -445,7 +445,8 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     ///      Throws if `_tokenId` is owned by someone.
     /// @param _to The address that will receive the minted tokens.
     /// @param _tokenId The token id to mint.
-    function _mint(address _to, uint _tokenId) internal override onlyBridge {
+    /// @return A boolean that indicates if the operation was successful.
+    function _mint(address _to, uint _tokenId) internal override {
         // Throws if `_to` is zero address
         assert(_to != address(0));
         // checkpoint for gov
@@ -498,7 +499,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
         ownerToNFTokenCount[_from] -= 1;
     }
 
-    function _burn(uint _tokenId) internal override onlyBridge {
+    function _burn(uint _tokenId) internal override {
         require(_isApprovedOrOwner(msg.sender, _tokenId), "caller is not owner nor approved");
 
         address owner = ownerOf(_tokenId);
