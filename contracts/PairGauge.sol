@@ -33,7 +33,10 @@ contract PairGauge is Gauge {
     duration = 14 days; // distro time
   }
 
-  function notifyRewardAmount(address token, uint256 reward) external override nonReentrant isNotEmergency onlyDistribution updateReward(address(0)) {
+  function notifyRewardAmount(
+    address token,
+    uint256 reward
+  ) external override nonReentrant isNotEmergency onlyDistribution updateReward(address(0)) {
     require(token == address(rewardToken), "not rew token");
     rewardToken.safeTransferFrom(distribution, address(this), reward);
 

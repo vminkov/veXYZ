@@ -139,10 +139,7 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
 
   /// @dev Receive rewards from distribution
 
-  function notifyRewardAmount(
-    address token,
-    uint256 reward
-  ) external virtual;
+  function notifyRewardAmount(address token, uint256 reward) external virtual;
 
   function _claimFees() internal virtual returns (bytes memory);
 }
