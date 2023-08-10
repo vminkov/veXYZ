@@ -5,6 +5,22 @@ import "./interfaces/IMarket.sol";
 import "./Gauge.sol";
 
 contract MarketGauge is Gauge {
+  using SafeERC20 for IERC20;
+
+  address public flywheelRewards;
+
+  function notifyRewardAmount(
+    address token,
+    uint256 reward
+  ) external override nonReentrant isNotEmergency onlyDistribution {
+    require(token == address(rewardToken), "not rew token");
+    rewardToken.safeTransferFrom(distribution, flywheelRewards, reward);
+  }
+
+  function getReward(address _user) public nonReentrant onlyDistribution {
+    // flywheel.accrue(); flywheel.claim();
+  }
+
   function claimFees() external {
     claimMarketFees();
   }

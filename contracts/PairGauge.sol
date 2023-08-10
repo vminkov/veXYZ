@@ -7,18 +7,114 @@ import "./Gauge.sol";
 contract PairGauge is Gauge {
   using SafeERC20 for IERC20;
 
-  IERC20 public TOKEN;
+  uint256 public duration;
+  uint256 public rewardRate;
+  uint256 public lastUpdateTime;
+  uint256 public rewardPerTokenStored;
+
+  mapping(address => uint256) public userRewardPerTokenPaid;
+  mapping(address => uint256) public rewards;
+
+  uint256 internal _totalSupply;
+  mapping(address => uint256) internal _balances;
+
+  modifier updateReward(address account) {
+    rewardPerTokenStored = rewardPerToken();
+    lastUpdateTime = lastTimeRewardApplicable();
+    if (account != address(0)) {
+      rewards[account] = earned(account);
+      userRewardPerTokenPaid[account] = rewardPerTokenStored;
+    }
+    _;
+  }
 
   function initialize(IERC20 _token) external initializer {
-    TOKEN = _token;
+    rewardToken = _token;
+    duration = 14 days; // distro time
   }
 
-  ///@notice deposit all TOKEN of msg.sender
+  function notifyRewardAmount(address token, uint256 reward) external override nonReentrant isNotEmergency onlyDistribution updateReward(address(0)) {
+    require(token == address(rewardToken), "not rew token");
+    rewardToken.safeTransferFrom(distribution, address(this), reward);
+
+    if (block.timestamp >= _periodFinish) {
+      rewardRate = reward / duration;
+    } else {
+      uint256 remaining = _periodFinish - block.timestamp;
+      uint256 leftover = remaining * rewardRate;
+      rewardRate = (reward + leftover) / duration;
+    }
+
+    // Ensure the provided reward amount is not more than the balance in the contract.
+    // This keeps the reward rate in the right range, preventing overflows due to
+    // very high values of rewardRate in the earned and rewardsPerToken functions;
+    // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
+    uint256 balance = rewardToken.balanceOf(address(this));
+    require(rewardRate <= balance / duration, "Provided reward too high");
+
+    lastUpdateTime = block.timestamp;
+    _periodFinish = block.timestamp + duration;
+    emit RewardAdded(reward);
+  }
+
+  ///@notice  reward for a sinle token
+  function rewardPerToken() public view returns (uint256) {
+    if (_totalSupply == 0) {
+      return rewardPerTokenStored;
+    } else {
+      return rewardPerTokenStored + ((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate * 1e18) / _totalSupply;
+    }
+  }
+
+  ///@notice total supply held
+  function totalSupply() public view returns (uint256) {
+    return _totalSupply;
+  }
+
+  ///@notice balance of a user
+  function balanceOf(address account) external view returns (uint256) {
+    return _balances[account];
+  }
+
+  ///@notice see earned rewards for user
+  function earned(address account) public view returns (uint256) {
+    return rewards[account] + (_balances[account] * (rewardPerToken() - userRewardPerTokenPaid[account])) / 1e18;
+  }
+
+  /* -----------------------------------------------------------------------------
+    --------------------------------------------------------------------------------
+    --------------------------------------------------------------------------------
+                                    USER INTERACTION
+    --------------------------------------------------------------------------------
+    --------------------------------------------------------------------------------
+    ----------------------------------------------------------------------------- */
+
+  ///@notice User harvest function called from distribution (voter allows harvest on multiple gauges)
+  function getReward(address _user) public nonReentrant onlyDistribution updateReward(_user) {
+    uint256 reward = rewards[_user];
+    if (reward > 0) {
+      rewards[_user] = 0;
+      rewardToken.safeTransfer(_user, reward);
+      emit Harvest(_user, reward);
+    }
+  }
+
+  ///@notice User harvest function
+  function getReward() public nonReentrant updateReward(msg.sender) {
+    uint256 reward = rewards[msg.sender];
+    if (reward > 0) {
+      rewards[msg.sender] = 0;
+      rewardToken.safeTransfer(msg.sender, reward);
+      emit Harvest(msg.sender, reward);
+    }
+  }
+
+  ///@notice deposit all rewardToken of msg.sender
   function depositAll() external {
-    _deposit(TOKEN.balanceOf(msg.sender), msg.sender);
+    _deposit(rewardToken.balanceOf(msg.sender), msg.sender);
   }
 
-  ///@notice deposit amount TOKEN
+  ///@notice deposit amount rewardToken
   function deposit(uint256 amount) external {
     _deposit(amount, msg.sender);
   }
@@ -30,7 +126,7 @@ contract PairGauge is Gauge {
     _balances[account] = _balances[account] + amount;
     _totalSupply = _totalSupply + amount;
 
-    TOKEN.safeTransferFrom(account, address(this), amount);
+    rewardToken.safeTransferFrom(account, address(this), amount);
 
     emit Deposit(account, amount);
   }
@@ -40,7 +136,7 @@ contract PairGauge is Gauge {
     _withdraw(_balances[msg.sender]);
   }
 
-  ///@notice withdraw a certain amount of TOKEN
+  ///@notice withdraw a certain amount of rewardToken
   function withdraw(uint256 amount) external {
     _withdraw(amount);
   }
@@ -53,7 +149,7 @@ contract PairGauge is Gauge {
     _totalSupply = _totalSupply - amount;
     _balances[msg.sender] = _balances[msg.sender] - amount;
 
-    TOKEN.safeTransfer(msg.sender, amount);
+    rewardToken.safeTransfer(msg.sender, amount);
 
     emit Withdraw(msg.sender, amount);
   }
@@ -64,7 +160,7 @@ contract PairGauge is Gauge {
     uint256 _amount = _balances[msg.sender];
     _totalSupply = _totalSupply - _amount;
     _balances[msg.sender] = 0;
-    TOKEN.safeTransfer(msg.sender, _amount);
+    rewardToken.safeTransfer(msg.sender, _amount);
     emit Withdraw(msg.sender, _amount);
   }
 
@@ -73,11 +169,11 @@ contract PairGauge is Gauge {
     _totalSupply = _totalSupply - _amount;
 
     _balances[msg.sender] = _balances[msg.sender] - _amount;
-    TOKEN.safeTransfer(msg.sender, _amount);
+    rewardToken.safeTransfer(msg.sender, _amount);
     emit Withdraw(msg.sender, _amount);
   }
 
-  ///@notice withdraw all TOKEN and harvest rewardToken
+  ///@notice withdraw all rewardToken and harvest rewardToken
   function withdrawAllAndHarvest() external {
     _withdraw(_balances[msg.sender]);
     getReward();
