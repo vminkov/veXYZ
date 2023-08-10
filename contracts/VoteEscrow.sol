@@ -445,7 +445,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     ///      Throws if `_tokenId` is owned by someone.
     /// @param _to The address that will receive the minted tokens.
     /// @param _tokenId The token id to mint.
-    /// @return A boolean that indicates if the operation was successful.
     function _mint(address _to, uint _tokenId) internal override {
         // Throws if `_to` is zero address
         assert(_to != address(0));
