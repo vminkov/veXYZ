@@ -5,7 +5,7 @@ interface IVoter {
     function _ve() external view returns (address);
     function gauges(address _pair) external view returns (address);
     function isGauge(address _gauge) external view returns (bool);
-    function poolForGauge(address _gauge) external view returns (address);
+    function marketForGauge(address _gauge) external view returns (address);
     function factory() external view returns (address);
     function minter() external view returns(address);
     function notifyRewardAmount(uint amount) external;
@@ -17,8 +17,8 @@ interface IVoter {
 
     function usedWeights(uint id) external view returns(uint);
     function lastVoted(uint id) external view returns(uint);
-    function poolVote(uint id, uint _index) external view returns(address _pair);
-    function votes(uint id, address _pool) external view returns(uint votes);
-    function poolVoteLength(uint tokenId) external view returns(uint);
+    function marketVote(uint id, uint _index) external view returns(address _pair);
+    function votes(uint id, address _market) external view returns(uint votes);
+    function marketVoteLength(uint tokenId) external view returns(uint);
     
 }

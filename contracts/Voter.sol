@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.13;
 
-import './libraries/Math.sol';
 import './interfaces/IBribe.sol';
 import './interfaces/IBribeFactory.sol';
 import './interfaces/IGauge.sol';
@@ -11,7 +10,7 @@ import './interfaces/IMinter.sol';
 import './interfaces/IMarket.sol';
 import './interfaces/IVoter.sol';
 import './interfaces/IVoteEscrow.sol';
-import './interfaces/IPermissionsRegistry.sol';
+import './VoterRolesAuthority.sol';
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -26,9 +25,8 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     address[] public gaugeFactories;                            // array with all the gauge factories
     address public bribeFactory;                                // bribe factory (internal and external)
     address public minter;                                      // minter mints $ion each epoch
-    //VoterRolesAuthority
-    address public permissionRegistry;                          // registry to check accesses
-    address[] public pools;                                     // all pools viable for incentives
+    VoterRolesAuthority public permissionRegistry;                          // registry to check accesses
+    address[] public markets;                                     // all markets viable for incentives
 
 
     uint internal index;                                        // gauge index
@@ -39,14 +37,14 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     mapping(address => uint) internal supplyIndex;              // gauge    => index
     mapping(address => uint) public claimable;                  // gauge    => claimable $ion
-    mapping(address => address) public gauges;                  // pool     => gauge
+    mapping(address => address) public gauges;                  // market     => gauge
     mapping(address => uint) public gaugesDistributionTimestamp;// gauge    => last Distribution Time
-    mapping(address => address) public poolForGauge;            // gauge    => pool
+    mapping(address => address) public marketForGauge;            // gauge    => market
     mapping(address => address) public internal_bribes;         // gauge    => internal bribe (only fees)
     mapping(address => address) public external_bribes;         // gauge    => external bribe (real bribes)
-    mapping(uint => mapping(address => uint256)) public votes;  // nft      => pool     => votes
-    mapping(uint => address[]) public poolVote;                 // nft      => pools
-    mapping(uint => mapping(address => uint)) internal weightsPerEpoch; // timestamp => pool => weights
+    mapping(uint => mapping(address => uint256)) public votes;  // nft      => market     => votes
+    mapping(uint => address[]) public marketVote;                 // nft      => markets
+    mapping(uint => mapping(address => uint)) internal weightsPerEpoch; // timestamp => market => weights
     mapping(uint => uint) internal totWeightsPerEpoch;         // timestamp => total weights
     mapping(uint => uint) public usedWeights;                   // nft      => total voting weight of user
     mapping(uint => uint) public lastVoted;                     // nft      => timestamp of last vote
@@ -55,7 +53,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(address => bool) public isFactory;                  // factory  => boolean [the pair factory exists?]
     mapping(address => bool) public isGaugeFactory;             // g.factory=> boolean [the gauge factory exists?]
 
-    event GaugeCreated(address indexed gauge, address creator, address internal_bribe, address indexed external_bribe, address indexed pool);
+    event GaugeCreated(address indexed gauge, address creator, address internal_bribe, address indexed external_bribe, address indexed market);
     event GaugeKilled(address indexed gauge);
     event GaugeRevived(address indexed gauge);
     event Voted(address indexed voter, uint tokenId, uint256 weight);
@@ -64,8 +62,6 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     event DistributeReward(address indexed sender, address indexed gauge, uint amount);
     event Attach(address indexed owner, address indexed gauge, uint tokenId);
     event Detach(address indexed owner, address indexed gauge, uint tokenId);
-    event Whitelisted(address indexed whitelister, address indexed token);
-    event Blacklisted(address indexed blacklister, address indexed token);
 
     constructor() {
         _disableInitializers();
@@ -76,7 +72,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         address _factory,
         address  _gauges,
         address _bribes,
-        address _permissionsRegistry,
+        VoterRolesAuthority _permissionsRegistry,
         address _minter
     ) initializer public {
         __Ownable_init();
@@ -112,7 +108,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ----------------------------------------------------------------------------- */
 
     modifier VoterAdmin() {
-        require(IPermissionsRegistry(permissionRegistry).hasRole("VOTER_ADMIN",msg.sender), 'ERR: VOTER_ADMIN');
+        require(permissionRegistry.canCall(msg.sender, address(this), msg.sig), 'ERR: VOTER_ADMIN');
         _;
     }
 
@@ -122,7 +118,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function isGovernor() internal view returns (bool) {
-        return IPermissionsRegistry(permissionRegistry).hasRole("GOVERNANCE",msg.sender);
+        return permissionRegistry.canCall(msg.sender, address(this), msg.sig);
     }
 
     /* -----------------------------------------------------------------------------
@@ -162,7 +158,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /// @notice Set a new PermissionRegistry
-    function setPermissionsRegistry(address _permissionRegistry) external VoterAdmin {
+    function setPermissionsRegistry(VoterRolesAuthority _permissionRegistry) external VoterAdmin {
         permissionRegistry = _permissionRegistry;
     }
 
@@ -285,21 +281,21 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function _reset(uint _tokenId) internal {
-        address[] storage _poolVote = poolVote[_tokenId];
-        uint _poolVoteCnt = _poolVote.length;
+        address[] storage _marketVote = marketVote[_tokenId];
+        uint _marketVoteCnt = _marketVote.length;
         uint256 _totalWeight = 0;
         uint256 _time = _epochTimestamp();
 
-        for (uint i = 0; i < _poolVoteCnt; i ++) {
-            address _pool = _poolVote[i];
-            uint256 _votes = votes[_tokenId][_pool];
+        for (uint i = 0; i < _marketVoteCnt; i ++) {
+            address _market = _marketVote[i];
+            uint256 _votes = votes[_tokenId][_market];
 
             if (_votes != 0) {
 
                 // if user last vote is < than epochTimestamp then votes are 0! IF not underflow occur
-                if(lastVoted[_tokenId] > _epochTimestamp()) weightsPerEpoch[_time][_pool] -= _votes;
+                if(lastVoted[_tokenId] > _epochTimestamp()) weightsPerEpoch[_time][_market] -= _votes;
 
-                votes[_tokenId][_pool] -= _votes;
+                votes[_tokenId][_market] -= _votes;
                 _totalWeight += _votes;
                 
                 emit Abstained(_tokenId, _votes);
@@ -312,68 +308,68 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         
         totWeightsPerEpoch[_time] -= _totalWeight;
         usedWeights[_tokenId] = 0;
-        delete poolVote[_tokenId];
+        delete marketVote[_tokenId];
     }
 
     /// @notice Recast the saved votes of a given TokenID
     function poke(uint _tokenId) external nonReentrant {
         _voteDelay(_tokenId);
         require(IVoteEscrow(_ve).isApprovedOrOwner(msg.sender, _tokenId));
-        address[] memory _poolVote = poolVote[_tokenId];
-        uint _poolCnt = _poolVote.length;
-        uint256[] memory _weights = new uint256[](_poolCnt);
+        address[] memory _marketVote = marketVote[_tokenId];
+        uint _marketCnt = _marketVote.length;
+        uint256[] memory _weights = new uint256[](_marketCnt);
 
-        for (uint i = 0; i < _poolCnt; i ++) {
-            _weights[i] = votes[_tokenId][_poolVote[i]];
+        for (uint i = 0; i < _marketCnt; i ++) {
+            _weights[i] = votes[_tokenId][_marketVote[i]];
         }
 
-        _vote(_tokenId, _poolVote, _weights);
+        _vote(_tokenId, _marketVote, _weights);
         lastVoted[_tokenId] = _epochTimestamp() + 1;
     }
 
     
-    /// @notice Vote for pools
+    /// @notice Vote for markets
     /// @param  _tokenId    veNFT tokenID used to vote
-    /// @param  _poolVote   array of gauges target addresses
+    /// @param  _marketVote   array of gauges target addresses
     /// @param  _weights    array of weights for each gauge target
-    function vote(uint _tokenId, address[] calldata _poolVote, uint256[] calldata _weights) external nonReentrant {
+    function vote(uint _tokenId, address[] calldata _marketVote, uint256[] calldata _weights) external nonReentrant {
         _voteDelay(_tokenId);
         require(IVoteEscrow(_ve).isApprovedOrOwner(msg.sender, _tokenId));
-        require(_poolVote.length == _weights.length);
-        _vote(_tokenId, _poolVote, _weights);
+        require(_marketVote.length == _weights.length);
+        _vote(_tokenId, _marketVote, _weights);
         lastVoted[_tokenId] = _epochTimestamp() + 1;
     }
     
-    function _vote(uint _tokenId, address[] memory _poolVote, uint256[] memory _weights) internal {
+    function _vote(uint _tokenId, address[] memory _marketVote, uint256[] memory _weights) internal {
         _reset(_tokenId);
-        uint _poolCnt = _poolVote.length;
+        uint _marketCnt = _marketVote.length;
         uint256 _weight = IVoteEscrow(_ve).balanceOfNFT(_tokenId);
         uint256 _totalVoteWeight = 0;
         uint256 _totalWeight = 0;
         uint256 _usedWeight = 0;
         uint256 _time = _epochTimestamp();
 
-        for (uint i = 0; i < _poolCnt; i++) {
+        for (uint i = 0; i < _marketCnt; i++) {
             _totalVoteWeight += _weights[i];
         }
 
-        for (uint i = 0; i < _poolCnt; i++) {
-            address _pool = _poolVote[i];
-            address _gauge = gauges[_pool];
+        for (uint i = 0; i < _marketCnt; i++) {
+            address _market = _marketVote[i];
+            address _gauge = gauges[_market];
 
             if (isGauge[_gauge] && isAlive[_gauge]) {
-                uint256 _poolWeight = _weights[i] * _weight / _totalVoteWeight;
-                require(votes[_tokenId][_pool] == 0);
-                require(_poolWeight != 0);
+                uint256 _marketWeight = _weights[i] * _weight / _totalVoteWeight;
+                require(votes[_tokenId][_market] == 0);
+                require(_marketWeight != 0);
 
-                poolVote[_tokenId].push(_pool);
-                weightsPerEpoch[_time][_pool] += _poolWeight;
+                marketVote[_tokenId].push(_market);
+                weightsPerEpoch[_time][_market] += _marketWeight;
 
-                votes[_tokenId][_pool] += _poolWeight;
+                votes[_tokenId][_market] += _marketWeight;
 
-                _usedWeight += _poolWeight;
-                _totalWeight += _poolWeight;
-                emit Voted(msg.sender, _tokenId, _poolWeight);
+                _usedWeight += _marketWeight;
+                _totalWeight += _marketWeight;
+                emit Voted(msg.sender, _tokenId, _marketWeight);
             }
         }
         if (_usedWeight > 0) IVoteEscrow(_ve).voting(_tokenId);
@@ -451,22 +447,22 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     --------------------------------------------------------------------------------
     ----------------------------------------------------------------------------- */
     /// @notice create multiple gauges
-    function createGauges(address[] memory _pool) external nonReentrant returns(address[] memory, address[] memory, address[] memory)  {
-        require(_pool.length <= 10);
-        address[] memory _gauge = new address[](_pool.length);
-        address[] memory _int = new address[](_pool.length);
-        address[] memory _ext = new address[](_pool.length);
+    function createGauges(address[] memory _markets) external nonReentrant returns(address[] memory, address[] memory, address[] memory)  {
+        require(_markets.length <= 10);
+        address[] memory _gauge = new address[](_markets.length);
+        address[] memory _int = new address[](_markets.length);
+        address[] memory _ext = new address[](_markets.length);
 
         uint i = 0;
-        for(i; i < _pool.length; i++){
-            (_gauge[i], _int[i], _ext[i]) = _createGauge(_pool[i]);
+        for(i; i < _markets.length; i++){
+            (_gauge[i], _int[i], _ext[i]) = _createGauge(_markets[i]);
         }
         return (_gauge, _int, _ext);
     }
 
      /// @notice create a gauge  
-    function createGauge(address _pool) external nonReentrant returns (address _gauge, address _internal_bribe, address _external_bribe)  {
-        (_gauge, _internal_bribe, _external_bribe) = _createGauge(_pool);
+    function createGauge(address _market) external nonReentrant returns (address _gauge, address _internal_bribe, address _external_bribe)  {
+        (_gauge, _internal_bribe, _external_bribe) = _createGauge(_market);
     }
 
     /// @notice create a gauge
@@ -506,10 +502,10 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         internal_bribes[_gauge] = _internal_bribe;
         external_bribes[_gauge] = _external_bribe;
         gauges[_target] = _gauge;
-        poolForGauge[_gauge] = _target;
+        marketForGauge[_gauge] = _target;
         isGauge[_gauge] = true;
         isAlive[_gauge] = true;
-        pools.push(_target);
+        markets.push(_target);
 
         // update index
         supplyIndex[_gauge] = index; // new users are set to the default global state
@@ -526,14 +522,14 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     --------------------------------------------------------------------------------
     ----------------------------------------------------------------------------- */
 
-    /// @notice view the total length of the pools
+    /// @notice view the total length of the markets
     function length() external view returns (uint) {
-        return pools.length;
+        return markets.length;
     }
 
-    /// @notice view the total length of the voted pools given a tokenId
-    function poolVoteLength(uint tokenId) external view returns(uint) { 
-        return poolVote[tokenId].length;
+    /// @notice view the total length of the voted markets given a tokenId
+    function marketVoteLength(uint tokenId) external view returns(uint) {
+        return marketVote[tokenId].length;
     }
 
     function _factories() external view returns(address[] memory){
@@ -552,13 +548,13 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         return gaugeFactories.length;
     }
 
-    function weights(address _pool) public view returns(uint) {
+    function weights(address _market) public view returns(uint) {
         uint _time = _epochTimestamp();
-        return weightsPerEpoch[_time][_pool];
+        return weightsPerEpoch[_time][_market];
     }
 
-    function weightsAt(address _pool, uint _time) public view returns(uint) {
-        return weightsPerEpoch[_time][_pool];
+    function weightsAt(address _market, uint _time) public view returns(uint) {
+        return weightsPerEpoch[_time][_market];
     }
 
     function totalWeight() public view returns(uint) {
@@ -585,7 +581,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @dev    the function is called by the minter each epoch. Anyway anyone can top up some extra rewards.
     /// @param  amount  amount to distribute
     function notifyRewardAmount(uint amount) external {
-        require(msg.sender == minter);
+        //require(msg.sender == owner());
         _safeTransferFrom(base, msg.sender, address(this), amount);     // transfer the distro in
         uint _totalWeight = totalWeightAt(_epochTimestamp() - 604800);   // minter call notify after updates active_period, loads votes - 1 week
         uint256 _ratio = 0;
@@ -618,20 +614,20 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
         IMinter(minter).update_period();
 
         uint x = 0;
-        uint stop = pools.length;
+        uint stop = markets.length;
         for (x; x < stop; x++) {
-            _distribute(gauges[pools[x]]);
+            _distribute(gauges[markets[x]]);
         }
     }
 
     /// @notice distribute the emission for N gauges
-    /// @param  start   start index point of the pools array
-    /// @param  finish  finish index point of the pools array
-    /// @dev    this function is used in case we have too many pools and gasLimit is reached
+    /// @param  start   start index point of the markets array
+    /// @param  finish  finish index point of the markets array
+    /// @dev    this function is used in case we have too many markets and gasLimit is reached
     function distribute(uint start, uint finish) public nonReentrant {
         IMinter(minter).update_period();
         for (uint x = start; x < finish; x++) {
-            _distribute(gauges[pools[x]]);
+            _distribute(gauges[markets[x]]);
         }
     }
 
@@ -676,9 +672,9 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @notice update info for gauges
     /// @dev    this function track the gauge index to emit the correct $ion amount after the distribution
     function _updateForAfterDistribution(address _gauge) private {
-        address _pool = poolForGauge[_gauge];
+        address _market = marketForGauge[_gauge];
         uint256 _time = _epochTimestamp() - 604800;
-        uint256 _supplied = weightsPerEpoch[_time][_pool];
+        uint256 _supplied = weightsPerEpoch[_time][_market];
 
         if (_supplied > 0) {
             uint _supplyIndex = supplyIndex[_gauge];

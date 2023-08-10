@@ -9,7 +9,6 @@ import { ReentrancyGuardUpgradeable } from "openzeppelin-contracts-upgradeable/c
 
 import './interfaces/IBribe.sol';
 import './interfaces/IGauge.sol';
-import "./libraries/Math.sol";
 
 interface IRewarder {
     function onReward(
@@ -35,7 +34,6 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
     // TODO unused?
     address public ve;
     address public distribution;
-    address public gaugeRewarder;
     address public internal_bribe;
     address public external_bribe;
 
@@ -124,12 +122,6 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
         distribution = _distribution;
     }
 
-    ///@notice set gauge rewarder address
-    function setGaugeRewarder(address _gaugeRewarder) external onlyOwner {
-        require(_gaugeRewarder != gaugeRewarder, "same addr");
-        gaugeRewarder = _gaugeRewarder;
-    }
-
     ///@notice set new internal bribe contract (where to send fees)
     function setInternalBribe(address _int) external onlyOwner {
             require(_int >= address(0), "zero");
@@ -171,7 +163,8 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
 
     ///@notice last time reward
     function lastTimeRewardApplicable() public view returns (uint256) {
-        return Math.min(block.timestamp, _periodFinish);
+        // return min
+        return block.timestamp < _periodFinish ? block.timestamp : _periodFinish;
     }
 
     ///@notice  reward for a sinle token
@@ -216,10 +209,6 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
             rewardToken.safeTransfer(_user, reward);
             emit Harvest(_user, reward);
         }
-
-        if (gaugeRewarder != address(0)) {
-            IRewarder(gaugeRewarder).onReward(_user, _user, _balances[_user]);
-        }
     }
 
     ///@notice User harvest function
@@ -229,10 +218,6 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
             rewards[msg.sender] = 0;
             rewardToken.safeTransfer(msg.sender, reward);
             emit Harvest(msg.sender, reward);
-        }
-
-        if (gaugeRewarder != address(0)) {
-            IRewarder(gaugeRewarder).onReward(msg.sender, msg.sender, _balances[msg.sender]);
         }
     }
 
