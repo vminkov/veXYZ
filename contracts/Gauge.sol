@@ -60,7 +60,7 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
     address _distribution,
     address _internal_bribe,
     address _external_bribe
-  ) internal {
+  ) internal onlyInitializing {
     __Ownable_init();
     __ReentrancyGuard_init();
 

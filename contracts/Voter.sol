@@ -469,6 +469,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     address[] memory _markets,
     address[] memory _flywheels
   ) external nonReentrant returns (address[] memory, address[] memory, address[] memory) {
+    require(_markets.length == _flywheels.length, "len diff");
     require(_markets.length <= 10);
     address[] memory _gauge = new address[](_markets.length);
     address[] memory _int = new address[](_markets.length);
