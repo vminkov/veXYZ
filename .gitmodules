@@ -7,3 +7,6 @@
 [submodule "lib/solmate"]
 	path = lib/solmate
 	url = https://github.com/transmissions11/solmate
+[submodule "lib/chain-abstraction-integration"]
+	path = lib/chain-abstraction-integration
+	url = https://github.com/connext/chain-abstraction-integration

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.13;
 
-import {IERC721, IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
-import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import { IVotesUpgradeable } from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 
 import {IERC20} from "./interfaces/IERC20.sol";
 import {IVoteEscrow} from "./interfaces/IVoteEscrow.sol";
+import {XERC721Upgradeable} from "./XERC721Upgradeable.sol";
 
 /// @title Voting Escrow
 /// @notice veNFT implementation that escrows ERC-20 tokens in the form of an ERC-721 NFT
@@ -18,8 +18,7 @@ import {IVoteEscrow} from "./interfaces/IVoteEscrow.sol";
 /// @author Modified from THENA (https://github.com/ThenafiBNB/THENA-Contracts/blob/main/contracts/VotingEscrow.sol)
 /// @dev Vote weight decays linearly over time. Lock time cannot be more than `MAXTIME` (1 years).
 
-// TODO XERC20Upgradeable
-contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradeable {
+contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpgradeable {
     enum DepositType {
         DEPOSIT_FOR_TYPE,
         CREATE_LOCK_TYPE,
@@ -92,7 +91,6 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
 
     uint256 public masterChainId;
     uint128 constant ARBITRUM_ONE = 42161;
-    address public bridge;
     address public auctionsFactory;
 
     modifier onlyOnMasterChain() {
@@ -104,11 +102,20 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
         _disableInitializers();
     }
 
-    function initialize(address token_addr, address _bridge, address _auctionsFactory) external initializer {
+    function initialize(string memory name_, string memory symbol_) external initializer {
+        __ERC721_init(name_, symbol_);
+    }
+
+    function initialize(address token_addr, address _auctionsFactory) external initializer {
         __ReentrancyGuard_init();
+        __Ownable_init();
+        __Ownable2Step_init();
+        __ERC721_init("veIonic", "veION");
+        __XERC721_init();
+
+        _transferOwnership(msg.sender);
 
         masterChainId = ARBITRUM_ONE;
-        bridge = _bridge;
         auctionsFactory = _auctionsFactory;
         token = token_addr;
         voter = msg.sender;
@@ -131,10 +138,10 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
                              METADATA STORAGE
     ------------------------------------------------------------*/
 
-    string constant public name = "veIonic";
-    string constant public symbol = "veION";
-    string constant public version = "1.0.0";
-    uint8 constant public decimals = 18;
+    //    string constant public name = "veIonic";
+    //    string constant public symbol = ;
+        string constant public version = "1.0.0";
+    //    uint8 constant public decimals = 18;
 
     function setTeam(address _team) external {
         require(msg.sender == team);
@@ -143,7 +150,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
 
     /// @dev Returns current token URI metadata
     /// @param _tokenId Token ID to fetch URI for.
-    function tokenURI(uint _tokenId) external view returns (string memory) {
+    function tokenURI(uint _tokenId) public view override returns (string memory) {
         require(idToOwner[_tokenId] != address(0), "Query for nonexistent token");
         LockedBalance memory _locked = locked[_tokenId];
         // return IVeArtProxy(artProxy)._tokenURI(_tokenId,_balanceOfNFT(_tokenId, block.timestamp),_locked.end,uint(int256(_locked.amount)));
@@ -161,7 +168,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
 
     /// @dev Returns the address of the owner of the NFT.
     /// @param _tokenId The identifier for an NFT.
-    function ownerOf(uint _tokenId) public view returns (address) {
+    function ownerOf(uint _tokenId) public view override returns (address) {
         return idToOwner[_tokenId];
     }
 
@@ -175,7 +182,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
     /// @dev Returns the number of NFTs owned by `_owner`.
     ///      Throws if `_owner` is the zero address. NFTs assigned to the zero address are considered invalid.
     /// @param _owner Address for whom to query the balance.
-    function balanceOf(address _owner) external view returns (uint) {
+    function balanceOf(address _owner) public view override returns (uint) {
         return _balance(_owner);
     }
 
@@ -193,14 +200,14 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
 
     /// @dev Get the approved address for a single NFT.
     /// @param _tokenId ID of the NFT to query the approval of.
-    function getApproved(uint _tokenId) external view returns (address) {
+    function getApproved(uint _tokenId) public view override returns (address) {
         return idToApprovals[_tokenId];
     }
 
     /// @dev Checks if `_operator` is an approved operator for `_owner`.
     /// @param _owner The address that owns the NFTs.
     /// @param _operator The address that acts on behalf of the owner.
-    function isApprovedForAll(address _owner, address _operator) external view returns (bool) {
+    function isApprovedForAll(address _owner, address _operator) public view override returns (bool) {
         return (ownerToOperators[_owner])[_operator];
     }
 
@@ -214,7 +221,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
     ///      Throws if `_approved` is the current owner. (NOTE: This is not written the EIP)
     /// @param _approved Address to be approved for the given NFT ID.
     /// @param _tokenId ID of the token to be approved.
-    function approve(address _approved, uint _tokenId) public {
+    function approve(address _approved, uint _tokenId) public override {
         address owner = idToOwner[_tokenId];
         // Throws if `_tokenId` is not a valid NFT
         require(owner != address(0));
@@ -235,7 +242,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
     /// @notice This works even if sender doesn't own any tokens at the time.
     /// @param _operator Address to add to the set of authorized operators.
     /// @param _approved True if the operators is approved, false to revoke approval.
-    function setApprovalForAll(address _operator, bool _approved) external {
+    function setApprovalForAll(address _operator, bool _approved) public override {
         // Throws if `_operator` is the `msg.sender`
         assert(_operator != msg.sender);
         ownerToOperators[msg.sender][_operator] = _approved;
@@ -258,7 +265,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
     /// @param _spender address of the spender to query
     /// @param _tokenId uint ID of the token to be transferred
     /// @return bool whether the msg.sender is approved for the given token ID, is an operator of the owner, or is the owner of the token
-    function _isApprovedOrOwner(address _spender, uint _tokenId) internal view returns (bool) {
+    function _isApprovedOrOwner(address _spender, uint _tokenId) internal view override returns (bool) {
         address owner = idToOwner[_tokenId];
         bool spenderIsOwner = owner == _spender;
         bool spenderIsApproved = _spender == idToApprovals[_tokenId];
@@ -313,7 +320,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
         address _from,
         address _to,
         uint _tokenId
-    ) external {
+    ) public override {
         _transferFrom(_from, _to, _tokenId, msg.sender);
     }
 
@@ -332,7 +339,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
         address _from,
         address _to,
         uint _tokenId
-    ) external {
+    ) public override {
         safeTransferFrom(_from, _to, _tokenId, "");
     }
 
@@ -364,7 +371,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
         address _to,
         uint _tokenId,
         bytes memory _data
-    ) public {
+    ) public override {
         _transferFrom(_from, _to, _tokenId, msg.sender);
 
         if (_isContract(_to)) {
@@ -391,7 +398,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
 
     /// @dev Interface identification is specified in ERC-165.
     /// @param _interfaceID Id of the interface
-    function supportsInterface(bytes4 _interfaceID) external view returns (bool) {
+    function supportsInterface(bytes4 _interfaceID) public view override returns (bool) {
         return supportedInterfaces[_interfaceID];
     }
 
@@ -438,8 +445,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
     ///      Throws if `_tokenId` is owned by someone.
     /// @param _to The address that will receive the minted tokens.
     /// @param _tokenId The token id to mint.
-    /// @return A boolean that indicates if the operation was successful.
-    function _mint(address _to, uint _tokenId) internal returns (bool) {
+    function _mint(address _to, uint _tokenId) internal override {
         // Throws if `_to` is zero address
         assert(_to != address(0));
         // checkpoint for gov
@@ -447,7 +453,6 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
         // Add NFT. Throws if `_tokenId` is owned by someone
         _addTokenTo(_to, _tokenId);
         emit Transfer(address(0), _to, _tokenId);
-        return true;
     }
 
     /// @dev Remove a NFT from an index mapping to a given address
@@ -493,7 +498,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
         ownerToNFTokenCount[_from] -= 1;
     }
 
-    function _burn(uint _tokenId) internal {
+    function _burn(uint _tokenId) internal override {
         require(_isApprovedOrOwner(msg.sender, _tokenId), "caller is not owner nor approved");
 
         address owner = ownerOf(_tokenId);
@@ -1398,7 +1403,7 @@ contract VoteEscrow is IERC721, IERC721Metadata, IVotes, ReentrancyGuardUpgradea
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 DOMAIN_TYPEHASH,
-                keccak256(bytes(name)),
+                keccak256(bytes(name())),
                 keccak256(bytes(version)),
                 block.chainid,
                 address(this)
