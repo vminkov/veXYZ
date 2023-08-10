@@ -34,8 +34,6 @@ contract Bribe is ReentrancyGuardUpgradeable, IBribe {
     address public ve;
     address public owner;
 
-    string public TYPE;
-
     // owner -> reward token -> lastTime
     mapping(address => mapping(address => uint256)) public userRewardPerTokenPaid;
     mapping(address => mapping(address => uint256)) public userTimestamp;
@@ -51,7 +49,7 @@ contract Bribe is ReentrancyGuardUpgradeable, IBribe {
         _disableInitializers();
     }
 
-    function initialize(address _owner,address _voter,address _bribeFactory, string memory _type) external initializer {
+    function initialize(address _owner,address _voter,address _bribeFactory) external initializer {
         require(_bribeFactory != address(0) && _voter != address(0) && _owner != address(0));
         __ReentrancyGuard_init();
 
@@ -62,7 +60,6 @@ contract Bribe is ReentrancyGuardUpgradeable, IBribe {
         minter = IVoter(_voter).minter();
         require(minter != address(0));
         owner = _owner;
-        TYPE = _type;
     }
 
     /// @notice get the current epoch
@@ -83,7 +80,7 @@ contract Bribe is ReentrancyGuardUpgradeable, IBribe {
         return rewardTokens.length;
     }
 
-    /// @notice get the last totalSupply (total votes for a pool)
+    /// @notice get the last totalSupply (total votes for a market)
     function totalSupply() external view returns (uint256) {
         uint256 _currentEpochStart = getEpochStart(); // claim until current epoch
         return _totalSupply[_currentEpochStart];
