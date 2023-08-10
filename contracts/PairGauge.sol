@@ -11,11 +11,12 @@ contract PairGauge is Gauge {
   uint256 public rewardRate;
   uint256 public lastUpdateTime;
   uint256 public rewardPerTokenStored;
+  uint256 public periodFinish;
 
   mapping(address => uint256) public userRewardPerTokenPaid;
   mapping(address => uint256) public rewards;
 
-  uint256 internal _totalSupply;
+  uint256 public totalSupply;
   mapping(address => uint256) internal _balances;
 
   modifier updateReward(address account) {
@@ -33,6 +34,14 @@ contract PairGauge is Gauge {
     duration = 14 days; // distro time
   }
 
+  /* -----------------------------------------------------------------------------
+    --------------------------------------------------------------------------------
+    --------------------------------------------------------------------------------
+                                    DISTRIBUTION
+    --------------------------------------------------------------------------------
+    --------------------------------------------------------------------------------
+    ----------------------------------------------------------------------------- */
+
   function notifyRewardAmount(
     address token,
     uint256 reward
@@ -40,10 +49,10 @@ contract PairGauge is Gauge {
     require(token == address(rewardToken), "not rew token");
     rewardToken.safeTransferFrom(distribution, address(this), reward);
 
-    if (block.timestamp >= _periodFinish) {
+    if (block.timestamp >= periodFinish) {
       rewardRate = reward / duration;
     } else {
-      uint256 remaining = _periodFinish - block.timestamp;
+      uint256 remaining = periodFinish - block.timestamp;
       uint256 leftover = remaining * rewardRate;
       rewardRate = (reward + leftover) / duration;
     }
@@ -56,22 +65,31 @@ contract PairGauge is Gauge {
     require(rewardRate <= balance / duration, "Provided reward too high");
 
     lastUpdateTime = block.timestamp;
-    _periodFinish = block.timestamp + duration;
+    periodFinish = block.timestamp + duration;
     emit RewardAdded(reward);
+  }
+
+  /* -----------------------------------------------------------------------------
+  --------------------------------------------------------------------------------
+  --------------------------------------------------------------------------------
+                                  VIEW FUNCTIONS
+  --------------------------------------------------------------------------------
+  --------------------------------------------------------------------------------
+  ----------------------------------------------------------------------------- */
+
+  ///@notice last time reward
+  function lastTimeRewardApplicable() public view returns (uint256) {
+    // return min
+    return block.timestamp < periodFinish ? block.timestamp : periodFinish;
   }
 
   ///@notice  reward for a sinle token
   function rewardPerToken() public view returns (uint256) {
-    if (_totalSupply == 0) {
+    if (totalSupply == 0) {
       return rewardPerTokenStored;
     } else {
-      return rewardPerTokenStored + ((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate * 1e18) / _totalSupply;
+      return rewardPerTokenStored + ((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate * 1e18) / totalSupply;
     }
-  }
-
-  ///@notice total supply held
-  function totalSupply() public view returns (uint256) {
-    return _totalSupply;
   }
 
   ///@notice balance of a user
@@ -127,7 +145,7 @@ contract PairGauge is Gauge {
     require(amount > 0, "deposit(Gauge): cannot stake 0");
 
     _balances[account] = _balances[account] + amount;
-    _totalSupply = _totalSupply + amount;
+    totalSupply = totalSupply + amount;
 
     rewardToken.safeTransferFrom(account, address(this), amount);
 
@@ -149,7 +167,7 @@ contract PairGauge is Gauge {
     require(amount > 0, "Cannot withdraw 0");
     require(_balances[msg.sender] > 0, "no balances");
 
-    _totalSupply = _totalSupply - amount;
+    totalSupply = totalSupply - amount;
     _balances[msg.sender] = _balances[msg.sender] - amount;
 
     rewardToken.safeTransfer(msg.sender, amount);
@@ -161,7 +179,7 @@ contract PairGauge is Gauge {
     require(emergency, "emergency");
     require(_balances[msg.sender] > 0, "no balances");
     uint256 _amount = _balances[msg.sender];
-    _totalSupply = _totalSupply - _amount;
+    totalSupply = totalSupply - _amount;
     _balances[msg.sender] = 0;
     rewardToken.safeTransfer(msg.sender, _amount);
     emit Withdraw(msg.sender, _amount);
@@ -169,7 +187,7 @@ contract PairGauge is Gauge {
 
   function emergencyWithdrawAmount(uint256 _amount) external nonReentrant {
     require(emergency, "emergency");
-    _totalSupply = _totalSupply - _amount;
+    totalSupply = totalSupply - _amount;
 
     _balances[msg.sender] = _balances[msg.sender] - _amount;
     rewardToken.safeTransfer(msg.sender, _amount);

@@ -30,8 +30,6 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
   address public internal_bribe;
   address public external_bribe;
 
-  uint256 internal _periodFinish;
-
   event RewardAdded(uint256 reward);
   event Deposit(address indexed user, uint256 amount);
   event Withdraw(address indexed user, uint256 amount);
@@ -111,34 +109,7 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
     emit EmergencyDeactivated(address(this), block.timestamp);
   }
 
-  /* -----------------------------------------------------------------------------
-  --------------------------------------------------------------------------------
-  --------------------------------------------------------------------------------
-                                  VIEW FUNCTIONS
-  --------------------------------------------------------------------------------
-  --------------------------------------------------------------------------------
-  ----------------------------------------------------------------------------- */
-
-  ///@notice last time reward
-  function lastTimeRewardApplicable() public view returns (uint256) {
-    // return min
-    return block.timestamp < _periodFinish ? block.timestamp : _periodFinish;
-  }
-
-  function periodFinish() external view returns (uint256) {
-    return _periodFinish;
-  }
-
-  /* -----------------------------------------------------------------------------
-    --------------------------------------------------------------------------------
-    --------------------------------------------------------------------------------
-                                    DISTRIBUTION
-    --------------------------------------------------------------------------------
-    --------------------------------------------------------------------------------
-    ----------------------------------------------------------------------------- */
-
   /// @dev Receive rewards from distribution
-
   function notifyRewardAmount(address token, uint256 reward) external virtual;
 
   function _claimFees() internal virtual returns (bytes memory);
