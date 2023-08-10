@@ -14,7 +14,11 @@ contract BaseTest is Test {
     address proxyAdmin = address(123);
 
     VoterRolesAuthority voterRolesAuthImpl = new VoterRolesAuthority();
-    TransparentUpgradeableProxy rolesAuthProxy = new TransparentUpgradeableProxy(address(voterRolesAuthImpl), proxyAdmin, "");
+    TransparentUpgradeableProxy rolesAuthProxy = new TransparentUpgradeableProxy(
+      address(voterRolesAuthImpl),
+      proxyAdmin,
+      ""
+    );
     VoterRolesAuthority voterRolesAuth = VoterRolesAuthority(address(rolesAuthProxy));
     voterRolesAuth.initialize(address(this));
 
