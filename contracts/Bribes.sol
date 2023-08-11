@@ -7,7 +7,7 @@ import "./interfaces/IVoteEscrow.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { ReentrancyGuardUpgradeable } from "openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "./interfaces/IBribe.sol";
 
 contract Bribe is ReentrancyGuardUpgradeable, IBribe {
@@ -77,7 +77,7 @@ contract Bribe is ReentrancyGuardUpgradeable, IBribe {
     return rewardTokens.length;
   }
 
-  /// @notice get the last totalSupply (total votes for a market)
+  /// @notice get the last totalSupply (total votes for a target)
   function totalSupply() external view returns (uint256) {
     uint256 _currentEpochStart = getEpochStart(); // claim until current epoch
     return _totalSupply[_currentEpochStart];
