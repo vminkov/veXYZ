@@ -85,6 +85,42 @@ contract BaseTest is Test {
     assertApproxEqAbs(ve.balanceOfNFT(tokenId), 20e18, 1e17, "wrong voting power");
   }
 
+  function helperCreateLock() internal returns(uint256 tokenId) {
+    ionicToken.mint(address(this), 100e18);
+
+    ionicToken.approve(address(ve), 1e36);
+
+    vm.chainId(ve.ARBITRUM_ONE());
+
+    tokenId = ve.create_lock(20e18, 2 weeks);
+  }
+
+  function testIonicLockTimeIncrease() public {
+    uint256 _tokenId = helperCreateLock();
+
+    (int128 previousAmount, uint256 previousEnd) = ve.locked(_tokenId);
+
+    ve.increase_unlock_time(_tokenId, 4 weeks);
+
+    (int128 newAmount, uint256 newEnd) = ve.locked(_tokenId);
+
+    assertGt(newEnd, previousEnd, "newEnd less or equal");
+    assertEq(int(newAmount), int(previousAmount), "amounts not equal");
+  }
+
+  function testIonicLockAmountIncrease() public {
+    uint256 _tokenId = helperCreateLock();
+
+    (int128 previousAmount, uint256 previousEnd) = ve.locked(_tokenId);
+
+    ve.increase_amount(_tokenId, 20e18);
+
+    (int128 newAmount, uint256 newEnd) = ve.locked(_tokenId);
+
+    assertEq(newEnd, previousEnd, "ends not equal");
+    assertGt(int(newAmount), int(previousAmount), "newAmount less or equal");
+  }
+
   function testCreateMarketGauges() public {
 
   }
