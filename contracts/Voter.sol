@@ -15,15 +15,12 @@ import "./VoterRolesAuthority.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract Voter is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
   address public _ve; // the ve token that governs these contracts
-  address public factory; // classic stable and volatile Pair Factory
-  address[] public factories; // Array with all the pair factories
   address internal base; // $ion token
   address public gaugeFactory; // gauge factory
   address[] public gaugeFactories; // array with all the gauge factories
   address public bribeFactory; // bribe factory (internal and external)
-  address public minter; // minter mints $ion each epoch
   VoterRolesAuthority public permissionRegistry; // registry to check accesses
   address[] public targets; // all markets/pools viable for incentives
 
@@ -47,8 +44,10 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
   mapping(uint => uint) public lastVoted; // nft      => timestamp of last vote
   mapping(address => bool) public isGauge; // gauge    => boolean [is a gauge?]
   mapping(address => bool) public isAlive; // gauge    => boolean [is the gauge alive?]
-  mapping(address => bool) public isFactory; // factory  => boolean [the pair factory exists?]
   mapping(address => bool) public isGaugeFactory; // g.factory=> boolean [the gauge factory exists?]
+
+  // TODO remove
+  address public minter;
 
   event GaugeCreated(
     address indexed gauge,
@@ -72,11 +71,9 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
   function initialize(
     address __ve,
-    address _factory,
     address _gauges,
     address _bribes,
-    VoterRolesAuthority _permissionsRegistry,
-    address _minter
+    VoterRolesAuthority _permissionsRegistry
   ) public initializer {
     __Ownable_init();
     __ReentrancyGuard_init();
@@ -84,18 +81,12 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     _ve = __ve;
     base = IVoteEscrow(__ve).token();
 
-    factory = _factory;
-    factories.push(factory);
-    isFactory[factory] = true;
-
     gaugeFactory = _gauges;
     gaugeFactories.push(_gauges);
     isGaugeFactory[_gauges] = true;
 
     bribeFactory = _bribes;
 
-    minter = msg.sender;
-    minter = _minter;
     permissionRegistry = _permissionsRegistry;
 
     VOTE_DELAY = 0;
@@ -138,12 +129,6 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     VOTE_DELAY = _delay;
   }
 
-  /// @notice Set a new Minter
-  function setMinter(address _minter) external VoterAdmin {
-    require(_minter != address(0));
-    minter = _minter;
-  }
-
   /// @notice Set a new Bribe Factory
   function setBribeFactory(address _bribeFactory) external VoterAdmin {
     bribeFactory = _bribeFactory;
@@ -152,11 +137,6 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
   /// @notice Set a new Gauge Factory
   function setGaugeFactory(address _gaugeFactory) external VoterAdmin {
     gaugeFactory = _gaugeFactory;
-  }
-
-  /// @notice Set a new Pair Factory
-  function setPairFactory(address _factory) external VoterAdmin {
-    factory = _factory;
   }
 
   /// @notice Set a new PermissionRegistry
@@ -198,42 +178,26 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     IERC20(base).approve(_gauge, type(uint).max);
   }
 
-  function addFactory(address _pairFactory, address _gaugeFactory) external VoterAdmin {
-    require(_pairFactory != address(0), "addr 0");
+  function addFactory(address _gaugeFactory) external VoterAdmin {
     require(_gaugeFactory != address(0), "addr 0");
-    require(!isFactory[_pairFactory], "factory true");
     require(!isGaugeFactory[_gaugeFactory], "g.fact true");
-
-    factories.push(_pairFactory);
     gaugeFactories.push(_gaugeFactory);
-    isFactory[_pairFactory] = true;
     isGaugeFactory[_gaugeFactory] = true;
   }
 
-  function replaceFactory(address _pairFactory, address _gaugeFactory, uint256 _pos) external VoterAdmin {
-    require(_pairFactory != address(0), "addr 0");
+  function replaceFactory(address _gaugeFactory, uint256 _pos) external VoterAdmin {
     require(_gaugeFactory != address(0), "addr 0");
-    require(isFactory[_pairFactory], "factory false");
     require(isGaugeFactory[_gaugeFactory], "g.fact false");
-    address oldPF = factories[_pos];
     address oldGF = gaugeFactories[_pos];
-    isFactory[oldPF] = false;
     isGaugeFactory[oldGF] = false;
-
-    factories[_pos] = (_pairFactory);
     gaugeFactories[_pos] = (_gaugeFactory);
-    isFactory[_pairFactory] = true;
     isGaugeFactory[_gaugeFactory] = true;
   }
 
   function removeFactory(uint256 _pos) external VoterAdmin {
-    address oldPF = factories[_pos];
     address oldGF = gaugeFactories[_pos];
-    require(isFactory[oldPF], "factory false");
     require(isGaugeFactory[oldGF], "g.fact false");
-    factories[_pos] = address(0);
     gaugeFactories[_pos] = address(0);
-    isFactory[oldPF] = false;
     isGaugeFactory[oldGF] = false;
   }
 
@@ -471,9 +435,7 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     address _target
   ) internal VoterAdmin returns (address _gauge, address _internal_bribe, address _external_bribe) {
     require(gauges[_target] == address(0x0), "!exists");
-    address _factory = factories[0];
     address _gaugeFactory = gaugeFactories[0];
-    require(_factory != address(0));
     require(_gaugeFactory != address(0));
 
     //address underlying = ITarget(_target).underlying();
@@ -536,14 +498,6 @@ contract VoterV3 is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
   /// @notice view the total length of the voted targets given a tokenId
   function targetVoteLength(uint tokenId) external view returns (uint) {
     return targetVote[tokenId].length;
-  }
-
-  function _factories() external view returns (address[] memory) {
-    return factories;
-  }
-
-  function factoryLength() external view returns (uint) {
-    return factories.length;
   }
 
   function _gaugeFactories() external view returns (address[] memory) {
