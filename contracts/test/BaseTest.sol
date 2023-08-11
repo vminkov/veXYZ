@@ -190,7 +190,7 @@ contract BaseTest is Test {
   }
 
   // [INTERNAL MINT/BURN LOGIC]
-  function tokenOfOwnerByIndex() public {
+  function testTokenOfOwnerByIndex() public {
     vm.chainId(ve.ARBITRUM_ONE());
 
     ionicToken.mint(address(this), 100e18);
@@ -199,9 +199,9 @@ contract BaseTest is Test {
 
     uint256 tokenId = ve.create_lock(20e18, 52 weeks);
 
-    uint256 tokenIndex = ve.tokenOfOwnerByIndex(address(this), 0);
+    uint256 tokenIdStored = ve.tokenOfOwnerByIndex(address(this), 0);
 
-    assertEq(tokenId, 0, "tokenOfOwnerByIndex/invalid-index-or-token");
+    assertEq(tokenId, tokenIdStored, "tokenOfOwnerByIndex/invalid-index-or-token");
   }
 
   // [ESCROW LOGIC]
