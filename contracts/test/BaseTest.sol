@@ -65,6 +65,146 @@ contract BaseTest is Test {
     ve.addBridge(bridge1);
   }
 
+  // VoteEscrow 
+  // [METADATA STORAGE]
+  function testVersion() public {
+    string memory version = ve.version();
+
+    assertEq(version, "1.0.0", "testVersion/incorrect-version");
+  }
+
+  function testSetTeam() public {
+    address newTeam = address(999);
+
+    ve.setTeam(newTeam);
+    
+    assertEq(newTeam, address(999), "testSetTeam/incorrect-team");
+  }
+
+  function testTokenURI() public {
+    vm.expectRevert("Query for nonexistent token");
+
+    string memory uri = ve.tokenURI(555);
+
+    // TODO returns empty URI for existing tokens
+  }
+
+  // [ERC721 BALANCE/OWNER STORAGE]
+  function testOwnerOf() public {
+    vm.chainId(ve.ARBITRUM_ONE());
+
+    ionicToken.mint(address(this), 100e18);
+
+    ionicToken.approve(address(ve), 1e36);
+
+    uint256 tokenId = ve.create_lock(20e18, 52 weeks);
+
+    address owner = ve.ownerOf(tokenId);
+
+    assertEq(owner, address(this), "testOwnerOf/incorrect-owner");
+  }
+
+  function testBalanceOf() public {
+    vm.chainId(ve.ARBITRUM_ONE());
+
+    ionicToken.mint(address(this), 100e18);
+
+    ionicToken.approve(address(ve), 1e36);
+
+    uint256 tokenId = ve.create_lock(20e18, 52 weeks);
+
+    uint256 balance = ve.balanceOf(address(this));
+
+    assertEq(balance, 1, "testOwnerOf/incorrect-balance");
+  }
+
+  // [ERC721 APPROVAL STORAGE]
+  function testApprovals() public {
+    vm.chainId(ve.ARBITRUM_ONE());
+
+    ionicToken.mint(address(this), 100e18);
+
+    ionicToken.approve(address(ve), 1e36);
+
+    uint256 tokenId = ve.create_lock(20e18, 52 weeks);
+
+    address approveAddress = address(999);
+
+    ve.approve(approveAddress, tokenId);
+
+    address approvedAddress = ve.getApproved(tokenId);
+
+    assertEq(approveAddress, approvedAddress, "testApprovals/incorrect-approval");
+
+    ve.setApprovalForAll(approveAddress, true);
+
+    bool approvalStatus = ve.isApprovedForAll(address(this), approveAddress);
+
+    assertEq(approvalStatus, true, "testApprovals/incorrect-approval-status");
+
+    bool isApprovedOrOwner = ve.isApprovedOrOwner(approveAddress, tokenId);
+
+    assertEq(isApprovedOrOwner, true, "testApprovals/incorrect-isApprovedOrOwner-status");
+
+    isApprovedOrOwner = ve.isApprovedOrOwner(address(888), tokenId); // random address
+
+    assertEq(isApprovedOrOwner, false, "testApprovals/incorrect-isApprovedOrOwner-random-address");
+  }
+
+  // [ERC721 LOGIC]
+  function testTransferFrom() public {
+    vm.chainId(ve.ARBITRUM_ONE());
+
+    ionicToken.mint(address(this), 100e18);
+
+    ionicToken.approve(address(ve), 1e36);
+
+    uint256 tokenId = ve.create_lock(20e18, 52 weeks);
+
+    address receiverOfTransfer = address(999);
+
+    uint256 ownershipsChangeBefore = ve.ownership_change(tokenId);
+    assertEq(ownershipsChangeBefore, 0, "testTransferFrom/incorrect-ownership-change-before");
+
+    ve.transferFrom(address(this), receiverOfTransfer, tokenId);
+
+    uint256 ownershipsChangeAfter = ve.ownership_change(tokenId);
+    assertEq(ownershipsChangeAfter, 1, "testTransferFrom/incorrect-ownership-change-after");
+
+    assertEq(ve.balanceOf(address(this)), 0, "testTransferFrom/incorrect-sender-balance");
+    assertEq(ve.balanceOf(receiverOfTransfer), 1, "testTransferFrom/incorrect-receiver-balance");
+
+    vm.prank(receiverOfTransfer);
+
+    ve.safeTransferFrom(receiverOfTransfer, address(444), tokenId);
+    assertEq(ve.balanceOf(address(444)), 1, "testTransferFrom/incorrect-safeTransfer-balance");
+  }
+
+  // [ERC165 LOGIC]
+  function testSupportsInterface() public {
+    vm.chainId(ve.ARBITRUM_ONE());
+
+    bool value = ve.supportsInterface(0x01ffc9a7);
+
+    assertEq(value, true, "testSupportsInterface/invalid-interface");
+  }
+
+  // [INTERNAL MINT/BURN LOGIC]
+  function tokenOfOwnerByIndex() public {
+    vm.chainId(ve.ARBITRUM_ONE());
+
+    ionicToken.mint(address(this), 100e18);
+
+    ionicToken.approve(address(ve), 1e36);
+
+    uint256 tokenId = ve.create_lock(20e18, 52 weeks);
+
+    uint256 tokenIndex = ve.tokenOfOwnerByIndex(address(this), 0);
+
+    assertEq(tokenId, 0, "tokenOfOwnerByIndex/invalid-index-or-token");
+  }
+
+  // [ESCROW LOGIC]
   function testIonicLockAndVotingPower() public {
     uint256 tokenId;
 
@@ -85,7 +225,7 @@ contract BaseTest is Test {
     assertApproxEqAbs(ve.balanceOfNFT(tokenId), 20e18, 1e17, "wrong voting power");
   }
 
-  function helperCreateLock() internal returns(uint256 tokenId) {
+  function _helperCreateLock() internal returns(uint256 tokenId) {
     ionicToken.mint(address(this), 100e18);
 
     ionicToken.approve(address(ve), 1e36);
@@ -96,26 +236,26 @@ contract BaseTest is Test {
   }
 
   function testIonicLockTimeIncrease() public {
-    uint256 _tokenId = helperCreateLock();
+    uint256 tokenId = _helperCreateLock();
 
-    (int128 previousAmount, uint256 previousEnd) = ve.locked(_tokenId);
+    (int128 previousAmount, uint256 previousEnd) = ve.locked(tokenId);
 
-    ve.increase_unlock_time(_tokenId, 4 weeks);
+    ve.increase_unlock_time(tokenId, 4 weeks);
 
-    (int128 newAmount, uint256 newEnd) = ve.locked(_tokenId);
+    (int128 newAmount, uint256 newEnd) = ve.locked(tokenId);
 
     assertGt(newEnd, previousEnd, "newEnd less or equal");
     assertEq(int(newAmount), int(previousAmount), "amounts not equal");
   }
 
   function testIonicLockAmountIncrease() public {
-    uint256 _tokenId = helperCreateLock();
+    uint256 tokenId = _helperCreateLock();
 
-    (int128 previousAmount, uint256 previousEnd) = ve.locked(_tokenId);
+    (int128 previousAmount, uint256 previousEnd) = ve.locked(tokenId);
 
-    ve.increase_amount(_tokenId, 20e18);
+    ve.increase_amount(tokenId, 20e18);
 
-    (int128 newAmount, uint256 newEnd) = ve.locked(_tokenId);
+    (int128 newAmount, uint256 newEnd) = ve.locked(tokenId);
 
     assertEq(newEnd, previousEnd, "ends not equal");
     assertGt(int(newAmount), int(previousAmount), "newAmount less or equal");
