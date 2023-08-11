@@ -632,7 +632,7 @@ contract Voter is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     IMinter(minter).update_period();
 
     _safeTransferFrom(base, msg.sender, address(this), amount); // transfer the distro in
-    uint _totalWeight = this.totalWeightAt(_epochTimestamp() - TWO_WEEKS); // minter call notify after updates active_period, loads votes - 2 weeks
+    uint _totalWeight = totalWeightAt(_epochTimestamp() - TWO_WEEKS); // minter call notify after updates active_period, loads votes - 2 weeks
     uint256 _ratio = 0;
 
     if (_totalWeight > 0) _ratio = (amount * 1e18) / _totalWeight; // 1e18 adjustment is removed during claim
