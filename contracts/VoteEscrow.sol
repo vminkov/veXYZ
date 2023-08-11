@@ -90,7 +90,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   uint internal tokenId;
 
   uint256 public masterChainId;
-  uint128 constant ARBITRUM_ONE = 42161;
+  uint128 constant public ARBITRUM_ONE = 42161;
 
   modifier onlyOnMasterChain() {
     require(block.chainid == masterChainId, "wrong chain id");
