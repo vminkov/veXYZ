@@ -165,7 +165,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   mapping(uint => address) internal idToOwner;
 
   /// @dev Mapping from owner address to count of his tokens.
-  mapping(address => uint) internal ownerToNFTokenCount;
+  mapping(address => uint) internal ownerToNFTTokenCount;
 
   /// @dev Returns the address of the owner of the NFT.
   /// @param _tokenId The identifier for an NFT.
@@ -177,7 +177,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   ///      Throws if `_owner` is the zero address. NFTs assigned to the zero address are considered invalid.
   /// @param _owner Address for whom to query the balance.
   function _balance(address _owner) internal view returns (uint) {
-    return ownerToNFTokenCount[_owner];
+    return ownerToNFTTokenCount[_owner];
   }
 
   /// @dev Returns the number of NFTs owned by `_owner`.
@@ -420,7 +420,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     // Update owner token index tracking
     _addTokenToOwnerList(_to, _tokenId);
     // Change count tracking
-    ownerToNFTokenCount[_to] += 1;
+    ownerToNFTTokenCount[_to] += 1;
   }
 
   /// @dev Function to mint tokens
@@ -478,7 +478,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     // Update owner token index tracking
     _removeTokenFromOwnerList(_from, _tokenId);
     // Change count tracking
-    ownerToNFTokenCount[_from] -= 1;
+    ownerToNFTTokenCount[_from] -= 1;
   }
 
   function _burn(uint _tokenId) internal override {
@@ -1298,7 +1298,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
           : checkpoints[dstRep][0].tokenIds;
         uint32 nextDstRepNum = _findWhatCheckpointToWrite(dstRep);
         uint[] storage dstRepNew = checkpoints[dstRep][nextDstRepNum].tokenIds;
-        uint ownerTokenCount = ownerToNFTokenCount[owner];
+        uint ownerTokenCount = ownerToNFTTokenCount[owner];
         require(dstRepOld.length + ownerTokenCount <= MAX_DELEGATES, "dstRep would have too many tokenIds");
         // All the same
         for (uint i = 0; i < dstRepOld.length; i++) {
