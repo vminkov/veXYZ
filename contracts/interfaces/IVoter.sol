@@ -8,7 +8,7 @@ interface IVoter {
 
   function isGauge(address _gauge) external view returns (bool);
 
-  function marketForGauge(address _gauge) external view returns (address);
+  function targetForGauge(address _gauge) external view returns (address);
 
   function minter() external view returns (address);
 
@@ -26,9 +26,9 @@ interface IVoter {
 
   function lastVoted(uint id) external view returns (uint);
 
-  function marketVote(uint id, uint _index) external view returns (address _pair);
+  function targetVote(uint id, uint _index) external view returns (address _pair);
 
-  function votes(uint id, address _market) external view returns (uint votes);
+  function votes(uint id, address _target) external view returns (uint votes);
 
-  function marketVoteLength(uint tokenId) external view returns (uint);
+  function targetVoteLength(uint tokenId) external view returns (uint);
 }
