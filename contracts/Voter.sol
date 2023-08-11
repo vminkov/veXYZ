@@ -45,8 +45,6 @@ contract Voter is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
   mapping(address => bool) public isGauge; // gauge    => boolean [is a gauge?]
   mapping(address => bool) public isAlive; // gauge    => boolean [is the gauge alive?]
   mapping(address => bool) public isGaugeFactory; // g.factory=> boolean [the gauge factory exists?]
-
-  // TODO remove
   address public minter;
 
   event PairGaugeCreated(
@@ -80,6 +78,7 @@ contract Voter is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     address __ve,
     address _gauges,
     address _bribes,
+    address _minter,
     VoterRolesAuthority _permissionsRegistry
   ) public initializer {
     __Ownable_init();
@@ -93,7 +92,7 @@ contract Voter is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     isGaugeFactory[_gauges] = true;
 
     bribeFactory = _bribes;
-
+    minter = _minter;
     permissionRegistry = _permissionsRegistry;
 
     VOTE_DELAY = 0;
@@ -108,7 +107,7 @@ contract Voter is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ----------------------------------------------------------------------------- */
 
   modifier VoterAdmin() {
-    require(permissionRegistry.canCall(msg.sender, address(this), msg.sig), "ERR: VOTER_ADMIN");
+    require(msg.sender == owner() || permissionRegistry.canCall(msg.sender, address(this), msg.sig), "ERR: VOTER_ADMIN");
     _;
   }
 
@@ -118,7 +117,7 @@ contract Voter is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
   }
 
   function isGovernor() internal view returns (bool) {
-    return permissionRegistry.canCall(msg.sender, address(this), msg.sig);
+    return msg.sender == owner() || permissionRegistry.canCall(msg.sender, address(this), msg.sig);
   }
 
   /* -----------------------------------------------------------------------------
