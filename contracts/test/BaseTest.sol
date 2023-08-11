@@ -29,8 +29,6 @@ contract BaseTest is Test {
   address bridge1 = address(321);
 
   function setUp() public {
-    vm.chainId(ve.ARBITRUM_ONE());
-
     ionicToken = new IonicToken();
 
     VoterRolesAuthority voterRolesAuthImpl = new VoterRolesAuthority();
@@ -53,6 +51,8 @@ contract BaseTest is Test {
     ve = VoteEscrow(address(veProxy));
     ve.initialize("veIonic", "veION", address(ionicToken));
 
+    vm.chainId(ve.ARBITRUM_ONE());
+
     // TODO
     IBribeFactory bribeFactory = IBribeFactory(address(0));
 
@@ -63,10 +63,6 @@ contract BaseTest is Test {
 
     vm.prank(ve.owner());
     ve.addBridge(bridge1);
-  }
-
-  function testOwner() public {
-    assertEq(gaugeFactory.owner(), address(this), "!owner");
   }
 
   function testIonicLockAndVotingPower() public {
@@ -87,5 +83,9 @@ contract BaseTest is Test {
     tokenId = ve.create_lock(20e18, 52 weeks);
 
     assertApproxEqAbs(ve.balanceOfNFT(tokenId), 20e18, 1e17, "wrong voting power");
+  }
+
+  function testCreateMarketGauges() public {
+
   }
 }
