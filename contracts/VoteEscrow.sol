@@ -502,8 +502,8 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   uint public supply;
 
   uint internal constant TWO_WEEKS = 2 weeks;
-  uint internal constant MAXTIME = 1 * 365 * 86400;
-  int128 internal constant iMAXTIME = 1 * 365 * 86400;
+  uint internal constant MAXTIME = 52 weeks;
+  int128 internal constant iMAXTIME = 52 weeks;
   uint internal constant MULTIPLIER = 1 ether;
 
   /*------------------------------------------------------------
