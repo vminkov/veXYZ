@@ -10,8 +10,6 @@ interface IVoter {
 
   function marketForGauge(address _gauge) external view returns (address);
 
-  function factory() external view returns (address);
-
   function minter() external view returns (address);
 
   function notifyRewardAmount(uint amount) external;

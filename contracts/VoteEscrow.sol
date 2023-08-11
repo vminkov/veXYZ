@@ -91,7 +91,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
 
   uint256 public masterChainId;
   uint128 constant ARBITRUM_ONE = 42161;
-  address public auctionsFactory;
 
   modifier onlyOnMasterChain() {
     require(block.chainid == masterChainId, "wrong chain id");
@@ -102,21 +101,20 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     _disableInitializers();
   }
 
-  function initialize(string memory name_, string memory symbol_) external initializer {
-    __ERC721_init(name_, symbol_);
-  }
-
-  function initialize(address token_addr, address _auctionsFactory) external initializer {
+  function initialize(
+    string memory name_,
+    string memory symbol_,
+    address token_addr
+  ) external initializer {
     __ReentrancyGuard_init();
     __Ownable_init();
     __Ownable2Step_init();
-    __ERC721_init("veIonic", "veION");
+    __ERC721_init(name_, symbol_);
     __XERC721_init();
 
     _transferOwnership(msg.sender);
 
     masterChainId = ARBITRUM_ONE;
-    auctionsFactory = _auctionsFactory;
     token = token_addr;
     voter = msg.sender;
     team = msg.sender;
@@ -285,7 +283,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   ///      Throws if `_from` is not the current owner.
   ///      Throws if `_tokenId` is not a valid NFT.
   function _transferFrom(address _from, address _to, uint _tokenId, address _sender) internal onlyOnMasterChain {
-    require(msg.sender == auctionsFactory, "transfer only through an auction");
     require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
     // Check requirements
     require(_isApprovedOrOwner(_sender, _tokenId));
