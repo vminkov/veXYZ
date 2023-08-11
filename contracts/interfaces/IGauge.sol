@@ -8,12 +8,6 @@ interface IGauge {
 
   function claimFees() external;
 
-  function balanceOf(address _account) external view returns (uint);
-
-  function totalSupply() external view returns (uint);
-
-  function earned(address account) external view returns (uint);
-
   function setDistribution(address _distro) external;
 
   function activateEmergencyMode() external;
