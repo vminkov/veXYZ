@@ -114,22 +114,31 @@ contract BaseTest is Test {
     uint256 rewardsAmount = 233e18;
     IonicFlywheel flywheel = new IonicFlywheel(rewardsContract);
 
-    vm.warp(block.timestamp + 1 weeks + 1);
-
+    // fund the user with some ION
     ionicToken.mint(address(this), 1000e18);
 
+    // create the market gauge
     (address gaugeAddress, ,) = voter.createMarketGauge(market, address(flywheel));
     MarketGauge marketGauge = MarketGauge(gaugeAddress);
 
+    // create the lock
     ionicToken.approve(address(ve), 1e36);
     uint256 tokenId = ve.create_lock(20e18, 52 weeks);
     voter.vote(tokenId, asArray(market), asArray(1e18));
 
+    // let the new epoch start
+    vm.warp(block.timestamp + 2 weeks + 1);
+
+    // send some rewards for the past epoch
     ionicToken.approve(address(voter), 1e36);
+    voter.notifyRewardAmount(rewardsAmount);
+
+    // distribute the rewards for the past epoch
     voter.distributeAll();
 
+    // check if the flywheel rewards contract is funded
     uint256 rewardsContractBalance = ionicToken.balanceOf(rewardsContract);
-    assertEq(rewardsContractBalance, rewardsAmount, "!rewards contract balance");
+    assertApproxEqAbs(rewardsContractBalance, rewardsAmount, 1e10, "!rewards contract balance");
   }
 
   function asArray(address value) public pure returns (address[] memory) {

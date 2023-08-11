@@ -13,7 +13,7 @@ import "./interfaces/IBribe.sol";
 contract Bribe is ReentrancyGuardUpgradeable, IBribe {
   using SafeERC20 for IERC20;
 
-  uint256 public constant TWO_WEEKS = 14 days; // rewards are released over 14 days
+  uint256 public constant TWO_WEEKS = 2 weeks; // rewards are released over 14 days
   uint256 public firstBribeTimestamp;
 
   /* ========== STATE VARIABLES ========== */

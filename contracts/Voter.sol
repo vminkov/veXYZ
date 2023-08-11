@@ -25,8 +25,8 @@ contract Voter is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
   address[] public targets; // all markets/pools viable for incentives
 
   uint internal index; // gauge index
-  uint internal constant DURATION = 14 days; // rewards are released over 14 days
-  uint public VOTE_DELAY; // delay between votes in seconds
+  uint internal constant TWO_WEEKS = 2 weeks;
+  uint public voteDelay; // delay between votes in seconds
   uint public constant MAX_VOTE_DELAY = 10 days; // Max vote delay allowed
 
   mapping(address => uint) internal supplyIndex; // gauge    => index
@@ -95,7 +95,7 @@ contract Voter is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     minter = _minter;
     permissionRegistry = _permissionsRegistry;
 
-    VOTE_DELAY = 0;
+    voteDelay = 0;
   }
 
   /* -----------------------------------------------------------------------------
@@ -130,9 +130,9 @@ contract Voter is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
   /// @notice set vote delay in seconds
   function setVoteDelay(uint _delay) external VoterAdmin {
-    require(_delay != VOTE_DELAY);
+    require(_delay != voteDelay);
     require(_delay <= MAX_VOTE_DELAY);
-    VOTE_DELAY = _delay;
+    voteDelay = _delay;
   }
 
   /// @notice Set a new Bribe Factory
@@ -401,7 +401,7 @@ contract Voter is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
   /// @notice check if user can vote
   function _voteDelay(uint _tokenId) internal view {
-    require(block.timestamp > lastVoted[_tokenId] + VOTE_DELAY, "ERR: VOTE_DELAY");
+    require(block.timestamp > lastVoted[_tokenId] + voteDelay, "ERR: VOTE_DELAY");
   }
 
   /* -----------------------------------------------------------------------------
@@ -624,8 +624,12 @@ contract Voter is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
   /// @param  amount  amount to distribute
   function notifyRewardAmount(uint amount) external {
     //require(msg.sender == owner());
+
+    // TODO figure out why it was not called before
+    IMinter(minter).update_period();
+
     _safeTransferFrom(base, msg.sender, address(this), amount); // transfer the distro in
-    uint _totalWeight = totalWeightAt(_epochTimestamp() - 604800); // minter call notify after updates active_period, loads votes - 1 week
+    uint _totalWeight = this.totalWeightAt(_epochTimestamp() - TWO_WEEKS); // minter call notify after updates active_period, loads votes - 2 weeks
     uint256 _ratio = 0;
 
     if (_totalWeight > 0) _ratio = (amount * 1e18) / _totalWeight; // 1e18 adjustment is removed during claim
@@ -709,7 +713,7 @@ contract Voter is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
   /// @dev    this function track the gauge index to emit the correct $ion amount after the distribution
   function _updateForAfterDistribution(address _gauge) private {
     address _target = targetForGauge[_gauge];
-    uint256 _time = _epochTimestamp() - 604800;
+    uint256 _time = _epochTimestamp() - TWO_WEEKS;
     uint256 _supplied = weightsPerEpoch[_time][_target];
 
     if (_supplied > 0) {

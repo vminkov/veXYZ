@@ -6,7 +6,7 @@ import "./interfaces/IMinter.sol";
 contract EpochsTimer is IMinter {
 
   uint public active_period;
-  uint public constant TWO_WEEKS = 2 * 7 * 86400;
+  uint public constant TWO_WEEKS = 2 weeks;
 
   function update_period() external returns (uint256) {
     uint _period = active_period;
