@@ -13,9 +13,7 @@ import { Voter } from "../Voter.sol";
 import { VoteEscrow } from "../VoteEscrow.sol";
 
 contract IonicToken is ERC20 {
-  constructor() ERC20("IONIC", "ION", 18) {
-
-  }
+  constructor() ERC20("IONIC", "ION", 18) {}
 }
 
 contract BaseTest is Test {

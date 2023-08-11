@@ -101,11 +101,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     _disableInitializers();
   }
 
-  function initialize(
-    string memory name_,
-    string memory symbol_,
-    address token_addr
-  ) external initializer {
+  function initialize(string memory name_, string memory symbol_, address token_addr) external initializer {
     __ReentrancyGuard_init();
     __Ownable_init();
     __Ownable2Step_init();
