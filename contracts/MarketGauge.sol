@@ -23,10 +23,7 @@ contract MarketGauge is Gauge {
     flywheel = IFlywheel(_flywheel);
   }
 
-  function notifyRewardAmount(
-    address token,
-    uint256 reward
-  ) external override nonReentrant isNotEmergency onlyVoter {
+  function notifyRewardAmount(address token, uint256 reward) external override nonReentrant isNotEmergency onlyVoter {
     require(token == address(rewardToken), "not rew token");
     address flywheelRewards = flywheel.flywheelRewards();
     require(flywheelRewards != address(0), "zero addr flywheel");

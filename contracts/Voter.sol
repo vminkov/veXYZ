@@ -107,7 +107,10 @@ contract Voter is IVoter, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ----------------------------------------------------------------------------- */
 
   modifier VoterAdmin() {
-    require(msg.sender == owner() || permissionRegistry.canCall(msg.sender, address(this), msg.sig), "ERR: VOTER_ADMIN");
+    require(
+      msg.sender == owner() || permissionRegistry.canCall(msg.sender, address(this), msg.sig),
+      "ERR: VOTER_ADMIN"
+    );
     _;
   }
 

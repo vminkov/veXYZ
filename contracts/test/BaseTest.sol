@@ -25,7 +25,7 @@ contract IonicFlywheel is IFlywheel {
   IERC20 public rewardToken;
   address public flywheelRewards;
 
-  constructor (address _rewards) {
+  constructor(address _rewards) {
     flywheelRewards = _rewards;
   }
 
@@ -118,7 +118,7 @@ contract BaseTest is Test {
     ionicToken.mint(address(this), 1000e18);
 
     // create the market gauge
-    (address gaugeAddress, ,) = voter.createMarketGauge(market, address(flywheel));
+    (address gaugeAddress, , ) = voter.createMarketGauge(market, address(flywheel));
     MarketGauge marketGauge = MarketGauge(gaugeAddress);
 
     // create the lock

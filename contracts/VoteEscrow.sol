@@ -90,7 +90,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   uint internal tokenId;
 
   uint256 public masterChainId;
-  uint128 constant public ARBITRUM_ONE = 42161;
+  uint128 public constant ARBITRUM_ONE = 42161;
 
   modifier onlyOnMasterChain() {
     require(block.chainid == masterChainId, "wrong chain id");
@@ -101,11 +101,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     _disableInitializers();
   }
 
-  function initialize(
-    string memory name_,
-    string memory symbol_,
-    address token_addr
-  ) external initializer {
+  function initialize(string memory name_, string memory symbol_, address token_addr) external initializer {
     __ReentrancyGuard_init();
     __Ownable_init();
     __Ownable2Step_init();

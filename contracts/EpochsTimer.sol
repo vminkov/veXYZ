@@ -4,7 +4,6 @@ pragma solidity 0.8.13;
 import "./interfaces/IMinter.sol";
 
 contract EpochsTimer is IMinter {
-
   uint public active_period;
   uint public constant TWO_WEEKS = 2 weeks;
 
@@ -23,6 +22,6 @@ contract EpochsTimer is IMinter {
   }
 
   function period() external view returns (uint256) {
-    return(block.timestamp / TWO_WEEKS) * TWO_WEEKS;
+    return (block.timestamp / TWO_WEEKS) * TWO_WEEKS;
   }
 }
