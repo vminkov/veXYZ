@@ -8,7 +8,7 @@ interface IGauge {
 
   function claimFees() external;
 
-  function setDistribution(address _distro) external;
+  function setVoter(address _voter) external;
 
   function activateEmergencyMode() external;
 

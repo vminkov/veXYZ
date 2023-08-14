@@ -26,7 +26,7 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
 
   // TODO unused?
   address public ve;
-  address public distribution;
+  address public voter;
   address public internal_bribe;
   address public external_bribe;
 
@@ -39,8 +39,8 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
   event EmergencyActivated(address indexed gauge, uint256 timestamp);
   event EmergencyDeactivated(address indexed gauge, uint256 timestamp);
 
-  modifier onlyDistribution() {
-    require(msg.sender == distribution, "Caller is not RewardsDistribution contract");
+  modifier onlyVoter() {
+    require(msg.sender == voter, "Caller is not Voter contract");
     _;
   }
 
@@ -57,7 +57,7 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
     address _rewardToken,
     address _ve,
     address _target,
-    address _distribution,
+    address _voter,
     address _internal_bribe,
     address _external_bribe
   ) internal onlyInitializing {
@@ -67,7 +67,7 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
     rewardToken = IERC20(_rewardToken); // main reward
     ve = _ve; // vested
     target = _target; // gauge target address
-    distribution = _distribution; // distro address (voter)
+    voter = _voter; // distro address (voter)
 
     internal_bribe = _internal_bribe; // lp fees goes here
     external_bribe = _external_bribe; // bribe fees goes here
@@ -83,11 +83,11 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
     --------------------------------------------------------------------------------
     ----------------------------------------------------------------------------- */
 
-  ///@notice set distribution address (should be voter)
-  function setDistribution(address _distribution) external onlyOwner {
-    require(_distribution != address(0), "zero addr");
-    require(_distribution != distribution, "same addr");
-    distribution = _distribution;
+  ///@notice set voter address (should be voter)
+  function setVoter(address _voter) external onlyOwner {
+    require(_voter != address(0), "zero addr");
+    require(_voter != voter, "same addr");
+    voter = _voter;
   }
 
   ///@notice set new internal bribe contract (where to send fees)
@@ -109,7 +109,7 @@ abstract contract Gauge is ReentrancyGuardUpgradeable, OwnableUpgradeable, IGaug
     emit EmergencyDeactivated(address(this), block.timestamp);
   }
 
-  /// @dev Receive rewards from distribution
+  /// @dev Receive rewards from voter
   function notifyRewardAmount(address token, uint256 reward) external virtual;
 
   function _claimFees() internal virtual returns (bytes memory);

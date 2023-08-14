@@ -33,13 +33,13 @@ contract PairGauge is Gauge {
     address _rewardToken,
     address _ve,
     address _target,
-    address _distribution,
+    address _voter,
     address _internal_bribe,
     address _external_bribe
   ) external initializer {
-    __Gauge_init(_rewardToken, _ve, _target, _distribution, _internal_bribe, _external_bribe);
+    __Gauge_init(_rewardToken, _ve, _target, _voter, _internal_bribe, _external_bribe);
     rewardToken = IERC20(_rewardToken);
-    duration = 14 days; // distro time
+    duration = 2 weeks;
   }
 
   /* -----------------------------------------------------------------------------
@@ -53,9 +53,9 @@ contract PairGauge is Gauge {
   function notifyRewardAmount(
     address token,
     uint256 reward
-  ) external override nonReentrant isNotEmergency onlyDistribution updateReward(address(0)) {
+  ) external override nonReentrant isNotEmergency onlyVoter updateReward(address(0)) {
     require(token == address(rewardToken), "not rew token");
-    rewardToken.safeTransferFrom(distribution, address(this), reward);
+    rewardToken.safeTransferFrom(voter, address(this), reward);
 
     if (block.timestamp >= periodFinish) {
       rewardRate = reward / duration;
@@ -118,8 +118,8 @@ contract PairGauge is Gauge {
     --------------------------------------------------------------------------------
     ----------------------------------------------------------------------------- */
 
-  ///@notice User harvest function called from distribution (voter allows harvest on multiple gauges)
-  function getReward(address _user) public nonReentrant onlyDistribution updateReward(_user) {
+  ///@notice User harvest function called from voter (voter allows harvest on multiple gauges)
+  function getReward(address _user) public nonReentrant onlyVoter updateReward(_user) {
     uint256 reward = rewards[_user];
     if (reward > 0) {
       rewards[_user] = 0;
