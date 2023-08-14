@@ -34,12 +34,15 @@
   "scripts": {
     "forge": "forge",
     "prettier": "prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol' --config .prettierrc",
-    "lint": "prettier --list-different 'contracts/**/*.sol'"
+    "lint": "prettier --list-different 'contracts/**/*.sol'",
+    "deploy:localhost": "hardhat --network localhost deploy --tags prod --no-compile",
+    "deploy": "hardhat deploy --tags prod --no-compile"
   },
   "files": [
     "contracts"
   ],
   "devDependencies": {
+    "hardhat-deploy": "^0.11.34",
     "prettier": "^2.6.2",
     "prettier-plugin-solidity": "^1.0.0-beta.19"
   }

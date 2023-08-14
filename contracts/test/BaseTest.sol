@@ -65,7 +65,10 @@ contract BaseTest is Test {
     VoteEscrow veImpl = new VoteEscrow();
     TransparentUpgradeableProxy veProxy = new TransparentUpgradeableProxy(address(veImpl), proxyAdmin, "");
     ve = VoteEscrow(address(veProxy));
-    ve.initialize("veIonic", "veION", address(ionicToken));
+
+    // TODO use BAL8020 on a fork?
+    address lockedToken = address(ionicToken);
+    ve.initialize("veIonic", "veION", lockedToken);
 
     vm.chainId(ve.ARBITRUM_ONE());
     // advance it time
