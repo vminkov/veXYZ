@@ -44,9 +44,6 @@ module.exports = async ({ run, ethers, getNamedAccounts, deployments, getChainId
       }
     });
 
-    // const ve = await deployments.getArtifact("VoteEscrow");
-    // console.log(JSON.stringify(ve));
-
     const voteEscrow = await deployments.deploy("VoteEscrow", {
       contract: "VoteEscrow",
       from: deployer,
@@ -64,6 +61,9 @@ module.exports = async ({ run, ethers, getNamedAccounts, deployments, getChainId
         proxyContract: "OpenZeppelinTransparentProxy"
       }
     });
+
+    //const ve = await deployments.getArtifact("VoteEscrow");
+    // console.log(JSON.stringify(ve));
 
     const timer = await deployments.deploy("EpochsTimer", {
       contract: "EpochsTimer",
@@ -103,7 +103,7 @@ module.exports = async ({ run, ethers, getNamedAccounts, deployments, getChainId
       }
     });
 
-    const voteEscrowContract = await ethers.getContract("VoteEscrow");
+    const voteEscrowContract = await ethers.getContractAt(voteEscrow.abi, voteEscrow.address);
     let tx = await voteEscrowContract.setVoter(voter.address);
     await tx.wait();
     console.log(`set the voter in the escrow with tx ${tx.hash}`);
