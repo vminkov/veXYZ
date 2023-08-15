@@ -123,10 +123,10 @@ contract GaugeFactory is IGaugeFactory, OwnableUpgradeable {
     }
   }
 
-  function setDistribution(address distro) external onlyAllowed {
+  function setVoter(address voter) external onlyAllowed {
     uint i = 0;
     for (i; i < _gauges.length; i++) {
-      IGauge(_gauges[i]).setDistribution(distro);
+      IGauge(_gauges[i]).setVoter(voter);
     }
   }
 

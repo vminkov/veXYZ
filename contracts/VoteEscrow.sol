@@ -90,7 +90,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   uint internal tokenId;
 
   uint256 public masterChainId;
-  uint128 constant public ARBITRUM_ONE = 42161;
+  uint128 public constant ARBITRUM_ONE = 42161;
 
   modifier onlyOnMasterChain() {
     require(block.chainid == masterChainId, "wrong chain id");
@@ -139,7 +139,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   //    uint8 constant public decimals = 18;
 
   function setTeam(address _team) external {
-    require(msg.sender == team);
+    require(msg.sender == team, "!team");
     team = _team;
   }
 
@@ -219,13 +219,13 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   function approve(address _approved, uint _tokenId) public override {
     address owner = idToOwner[_tokenId];
     // Throws if `_tokenId` is not a valid NFT
-    require(owner != address(0));
+    require(owner != address(0), "!owner zero");
     // Throws if `_approved` is the current owner
-    require(_approved != owner);
+    require(_approved != owner, "!owner");
     // Check requirements
     bool senderIsOwner = (idToOwner[_tokenId] == msg.sender);
     bool senderIsApprovedForAll = (ownerToOperators[owner])[msg.sender];
-    require(senderIsOwner || senderIsApprovedForAll);
+    require(senderIsOwner || senderIsApprovedForAll, "!not owner or approved");
     // Set the approval
     idToApprovals[_tokenId] = _approved;
     emit Approval(owner, _approved, _tokenId);
@@ -281,7 +281,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   function _transferFrom(address _from, address _to, uint _tokenId, address _sender) internal onlyOnMasterChain {
     require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
     // Check requirements
-    require(_isApprovedOrOwner(_sender, _tokenId));
+    require(_isApprovedOrOwner(_sender, _tokenId), "!not owner or approved");
     // Clear approval. Throws if `_from` is not the current owner
     _clearApproval(_from, _tokenId);
     // Remove NFT. Throws if `_tokenId` is not a valid NFT
@@ -502,8 +502,8 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   uint public supply;
 
   uint internal constant TWO_WEEKS = 2 weeks;
-  uint internal constant MAXTIME = 1 * 365 * 86400;
-  int128 internal constant iMAXTIME = 1 * 365 * 86400;
+  uint internal constant MAXTIME = 52 weeks;
+  int128 internal constant iMAXTIME = 52 weeks;
   uint internal constant MULTIPLIER = 1 ether;
 
   /*------------------------------------------------------------
@@ -728,7 +728,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   function deposit_for(uint _tokenId, uint _value) external nonReentrant {
     LockedBalance memory _locked = locked[_tokenId];
 
-    require(_value > 0); // dev: need non-zero value
+    require(_value > 0, "!zero"); // dev: need non-zero value
     require(_locked.amount > 0, "No existing lock found");
     require(_locked.end > block.timestamp, "Cannot add to expired lock. Withdraw");
     _deposit_for(_tokenId, _value, 0, _locked, DepositType.DEPOSIT_FOR_TYPE);
@@ -741,7 +741,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   function _create_lock(uint _value, uint _lock_duration, address _to) internal returns (uint) {
     uint unlock_time = ((block.timestamp + _lock_duration) / TWO_WEEKS) * TWO_WEEKS; // Locktime is rounded down to weeks
 
-    require(_value > 0); // dev: need non-zero value
+    require(_value > 0, "!zero"); // dev: need non-zero value
     require(unlock_time > block.timestamp, "Can only lock until time in the future");
     require(unlock_time <= block.timestamp + MAXTIME, "Voting lock can be 1 years max");
 
@@ -1017,35 +1017,35 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   mapping(uint => bool) public voted;
 
   function setVoter(address _voter) external {
-    require(msg.sender == team);
+    require(msg.sender == team, "!team");
     voter = _voter;
   }
 
   function voting(uint _tokenId) external {
-    require(msg.sender == voter);
+    require(msg.sender == voter, "!voter");
     voted[_tokenId] = true;
   }
 
   function abstain(uint _tokenId) external {
-    require(msg.sender == voter);
+    require(msg.sender == voter, "!voter");
     voted[_tokenId] = false;
   }
 
   function attach(uint _tokenId) external {
-    require(msg.sender == voter);
+    require(msg.sender == voter, "!voter");
     attachments[_tokenId] = attachments[_tokenId] + 1;
   }
 
   function detach(uint _tokenId) external {
-    require(msg.sender == voter);
+    require(msg.sender == voter, "!voter");
     attachments[_tokenId] = attachments[_tokenId] - 1;
   }
 
   function merge(uint _from, uint _to) external {
     require(attachments[_from] == 0 && !voted[_from], "attached");
-    require(_from != _to);
-    require(_isApprovedOrOwner(msg.sender, _from));
-    require(_isApprovedOrOwner(msg.sender, _to));
+    require(_from != _to, "!from==to");
+    require(_isApprovedOrOwner(msg.sender, _from), "!from approved or owner");
+    require(_isApprovedOrOwner(msg.sender, _to), "!to approved or owner");
 
     LockedBalance memory _locked0 = locked[_from];
     LockedBalance memory _locked1 = locked[_to];
@@ -1068,14 +1068,14 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
 
     // check permission and vote
     require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
-    require(_isApprovedOrOwner(msg.sender, _tokenId));
+    require(_isApprovedOrOwner(msg.sender, _tokenId), "!sender approved or owner");
 
     // save old data and totalWeight
     address _to = idToOwner[_tokenId];
     LockedBalance memory _locked = locked[_tokenId];
     uint end = _locked.end;
     uint value = uint(int256(_locked.amount));
-    require(value > 0); // dev: need non-zero value
+    require(value > 0, "!zero"); // dev: need non-zero value
 
     // reset supply, _deposit_for increase it
     supply = supply - value;
@@ -1329,8 +1329,8 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   }
 
   function delegateBySig(address delegatee, uint nonce, uint expiry, uint8 v, bytes32 r, bytes32 s) public {
-    require(delegatee != msg.sender);
-    require(delegatee != address(0));
+    require(delegatee != msg.sender, "!sender");
+    require(delegatee != address(0), "!zero addr");
 
     bytes32 domainSeparator = keccak256(
       abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name())), keccak256(bytes(version)), block.chainid, address(this))
