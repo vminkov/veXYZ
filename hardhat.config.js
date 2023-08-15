@@ -37,6 +37,10 @@ module.exports = {
       }
     ]
   },
+  paths: {
+    sources: "./none",
+    artifacts: "./out"
+  },
   namedAccounts: {
     deployer: { default: 0 },
     alice: { default: 1 },

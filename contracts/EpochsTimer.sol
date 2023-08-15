@@ -2,10 +2,15 @@
 pragma solidity 0.8.13;
 
 import "./interfaces/IMinter.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract EpochsTimer is IMinter {
+contract EpochsTimer is IMinter, Initializable {
   uint public active_period;
   uint public constant TWO_WEEKS = 2 weeks;
+
+  function initialize() external initializer {
+    // empty
+  }
 
   function update_period() external returns (uint256) {
     uint _period = active_period;
