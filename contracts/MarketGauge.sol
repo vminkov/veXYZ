@@ -60,4 +60,8 @@ contract MarketGauge is Gauge {
 
     return abi.encode(fees);
   }
+
+  function setFlywheel(IFlywheel _flywheel) external onlyOwner {
+    flywheel = _flywheel;
+  }
 }

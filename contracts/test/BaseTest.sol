@@ -40,7 +40,8 @@ contract BaseTest is Test {
   GaugeFactory public gaugeFactory;
   Voter public voter;
   VoteEscrow public ve;
-  IonicToken ionicToken = new IonicToken();
+  EpochsTimer timer;
+  IonicToken ionicToken;
   address proxyAdmin = address(123);
   address bridge1 = address(321);
 
@@ -56,26 +57,34 @@ contract BaseTest is Test {
     VoterRolesAuthority voterRolesAuth = VoterRolesAuthority(address(rolesAuthProxy));
     voterRolesAuth.initialize(address(this));
 
-    GaugeFactory impl = new GaugeFactory();
-    TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(impl), proxyAdmin, "");
+    {
+      GaugeFactory impl = new GaugeFactory();
+      TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(impl), proxyAdmin, "");
+      gaugeFactory = GaugeFactory(address(proxy));
+      gaugeFactory.initialize(voterRolesAuth);
+    }
 
-    gaugeFactory = GaugeFactory(address(proxy));
-    gaugeFactory.initialize(voterRolesAuth);
+    {
+      VoteEscrow veImpl = new VoteEscrow();
+      TransparentUpgradeableProxy veProxy = new TransparentUpgradeableProxy(address(veImpl), proxyAdmin, "");
+      ve = VoteEscrow(address(veProxy));
 
-    VoteEscrow veImpl = new VoteEscrow();
-    TransparentUpgradeableProxy veProxy = new TransparentUpgradeableProxy(address(veImpl), proxyAdmin, "");
-    ve = VoteEscrow(address(veProxy));
-
-    // TODO use BAL8020 on a fork?
-    address lockedToken = address(ionicToken);
-    ve.initialize("veIonic", "veION", lockedToken);
+      // TODO use BAL8020 on a fork?
+      address lockedToken = address(ionicToken);
+      ve.initialize("veIonic", "veION", lockedToken);
+    }
 
     vm.chainId(ve.ARBITRUM_ONE());
     // advance it time
     vm.warp(200 weeks);
 
-    EpochsTimer timer = new EpochsTimer();
-    timer.update_period();
+    {
+      EpochsTimer timerImpl = new EpochsTimer();
+      TransparentUpgradeableProxy timerProxy = new TransparentUpgradeableProxy(address(timerImpl), proxyAdmin, "");
+      timer = EpochsTimer(address(timerProxy));
+      timer.initialize();
+      timer.update_period();
+    }
 
     // TODO
     IBribeFactory bribeFactory = IBribeFactory(address(0));
