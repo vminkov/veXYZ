@@ -13,15 +13,6 @@ abstract contract XERC721Upgradeable is ERC721Upgradeable, Ownable2StepUpgradeab
 
   constructor() {}
 
-  function initialize(address _owner, string memory _name, string memory _symbol) public initializer {
-    __Ownable_init();
-    __Ownable2Step_init();
-    __ERC721_init(_name, _symbol);
-    __XERC721_init();
-
-    _transferOwnership(_owner);
-  }
-
   function __XERC721_init() internal onlyInitializing {
     __XERC721_init_unchained();
   }
@@ -59,6 +50,7 @@ abstract contract XERC721Upgradeable is ERC721Upgradeable, Ownable2StepUpgradeab
     _mint(_to, _tokenId);
   }
 
+  // specify the locked assets amount and unlock time metadata
   function burn(uint256 _tokenId) public onlyBridge {
     _burn(_tokenId);
   }

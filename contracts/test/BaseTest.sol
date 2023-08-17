@@ -40,6 +40,7 @@ contract BaseTest is Test {
   GaugeFactory public gaugeFactory;
   Voter public voter;
   VoteEscrow public ve;
+  EpochsTimer timer;
   IonicToken ionicToken = new IonicToken();
   address proxyAdmin = address(123);
   address bridge1 = address(321);
@@ -56,23 +57,31 @@ contract BaseTest is Test {
     VoterRolesAuthority voterRolesAuth = VoterRolesAuthority(address(rolesAuthProxy));
     voterRolesAuth.initialize(address(this));
 
-    GaugeFactory impl = new GaugeFactory();
-    TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(impl), proxyAdmin, "");
+    {
+      GaugeFactory impl = new GaugeFactory();
+      TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(impl), proxyAdmin, "");
+      gaugeFactory = GaugeFactory(address(proxy));
+      gaugeFactory.initialize(voterRolesAuth);
+    }
 
-    gaugeFactory = GaugeFactory(address(proxy));
-    gaugeFactory.initialize(voterRolesAuth);
-
-    VoteEscrow veImpl = new VoteEscrow();
-    TransparentUpgradeableProxy veProxy = new TransparentUpgradeableProxy(address(veImpl), proxyAdmin, "");
-    ve = VoteEscrow(address(veProxy));
-    ve.initialize("veIonic", "veION", address(ionicToken));
+    {
+      VoteEscrow veImpl = new VoteEscrow();
+      TransparentUpgradeableProxy veProxy = new TransparentUpgradeableProxy(address(veImpl), proxyAdmin, "");
+      ve = VoteEscrow(address(veProxy));
+      ve.initialize("veIonic", "veION", address(ionicToken));
+    }
 
     vm.chainId(ve.ARBITRUM_ONE());
     // advance it time
     vm.warp(200 weeks);
 
-    EpochsTimer timer = new EpochsTimer();
-    timer.update_period();
+    {
+      EpochsTimer timerImpl = new EpochsTimer();
+      TransparentUpgradeableProxy timerProxy = new TransparentUpgradeableProxy(address(timerImpl), proxyAdmin, "");
+      timer = EpochsTimer(address(timerProxy));
+      timer.initialize();
+      timer.update_period();
+    }
 
     // TODO
     IBribeFactory bribeFactory = IBribeFactory(address(0));
