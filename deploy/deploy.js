@@ -8,7 +8,7 @@ module.exports = async ({ run, ethers, getNamedAccounts, deployments, getChainId
   const ionicTokenAddress = ethers.constants.AddressZero;
 
   // TODO arbi = 42161
-  if (chainId == 1337) {
+  //if (chainId == 1337) {
     const voterRolesAuth = await deployments.deploy("VoterRolesAuthority", {
       from: deployer,
       args: [],
@@ -25,7 +25,6 @@ module.exports = async ({ run, ethers, getNamedAccounts, deployments, getChainId
         proxyContract: "OpenZeppelinTransparentProxy"
       }
     });
-
 
     const gaugeFactory = await deployments.deploy("GaugeFactory", {
       from: deployer,
@@ -109,7 +108,7 @@ module.exports = async ({ run, ethers, getNamedAccounts, deployments, getChainId
     console.log(`set the voter in the escrow with tx ${tx.hash}`);
 
     // TODO configure a bridge
-  }
+  //}
 }
 
 module.exports.tags = ["prod"];
