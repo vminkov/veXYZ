@@ -41,7 +41,7 @@ contract BaseTest is Test {
   Voter public voter;
   VoteEscrow public ve;
   EpochsTimer timer;
-  IonicToken ionicToken = new IonicToken();
+  IonicToken ionicToken;
   address proxyAdmin = address(123);
   address bridge1 = address(321);
 
@@ -68,7 +68,10 @@ contract BaseTest is Test {
       VoteEscrow veImpl = new VoteEscrow();
       TransparentUpgradeableProxy veProxy = new TransparentUpgradeableProxy(address(veImpl), proxyAdmin, "");
       ve = VoteEscrow(address(veProxy));
-      ve.initialize("veIonic", "veION", address(ionicToken));
+
+      // TODO use BAL8020 on a fork?
+      address lockedToken = address(ionicToken);
+      ve.initialize("veIonic", "veION", lockedToken);
     }
 
     vm.chainId(ve.ARBITRUM_ONE());

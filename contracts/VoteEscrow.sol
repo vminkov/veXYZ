@@ -278,7 +278,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   ///      Throws if `_to` is the zero address.
   ///      Throws if `_from` is not the current owner.
   ///      Throws if `_tokenId` is not a valid NFT.
-  function _transferFrom(address _from, address _to, uint _tokenId, address _sender) internal onlyOnMasterChain {
+  function _transferFrom(address _from, address _to, uint _tokenId, address _sender) internal {
     require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
     // Check requirements
     require(_isApprovedOrOwner(_sender, _tokenId), "!not owner or approved");
