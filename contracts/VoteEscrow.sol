@@ -224,11 +224,12 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     // Clear approval. Throws if `_from` is not the current owner
     _clearApproval(_from, _tokenId);
     // Remove NFT. Throws if `_tokenId` is not a valid NFT
-    _removeTokenFrom(_from, _tokenId);
+    _removeTokenFromOwnerList(_from, _tokenId);
     // auto re-delegate
     _moveTokenDelegates(delegates(_from), delegates(_to), _tokenId);
-    _addTokenToOwnerList(_to, _tokenId);
     // Add NFT
+    _addTokenToOwnerList(_to, _tokenId);
+    // OpenZeppelin impl transfer
     super._transfer(_from, _to, _tokenId);
     // Set the block of ownership transfer (for Flash NFT protection)
     ownership_change[_tokenId] = block.number;
@@ -353,9 +354,9 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     assert(_to != address(0));
     // checkpoint for gov
     _moveTokenDelegates(address(0), delegates(_to), _tokenId);
-
-    _addTokenToOwnerList(_to, _tokenId);
     // Add NFT. Throws if `_tokenId` is owned by someone
+    _addTokenToOwnerList(_to, _tokenId);
+    // OpenZeppelin impl mint
     super._mint(_to, _tokenId);
   }
 
@@ -363,6 +364,8 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   /// @param _from address of the sender
   /// @param _tokenId uint ID Of the token to be removed
   function _removeTokenFromOwnerList(address _from, uint _tokenId) internal {
+    // Throws if `_from` is not the current owner
+    assert(_ownerOf(_tokenId) == _from);
     // Delete
     uint current_count = balanceOf(_from) - 1;
     uint current_index = tokenToOwnerIndex[_tokenId];
@@ -389,15 +392,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     }
   }
 
-  /// @dev Remove a NFT from a given address
-  ///      Throws if `_from` is not the current owner.
-  function _removeTokenFrom(address _from, uint _tokenId) internal {
-    // Throws if `_from` is not the current owner
-    assert(_ownerOf(_tokenId) == _from);
-    // Update owner token index tracking
-    _removeTokenFromOwnerList(_from, _tokenId);
-  }
-
   function _burn(uint _tokenId) internal override {
     require(_isApprovedOrOwner(msg.sender, _tokenId), "not owner nor approved");
 
@@ -408,7 +402,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     // checkpoint for gov
     _moveTokenDelegates(delegates(owner), address(0), _tokenId);
     // Remove token
-    _removeTokenFrom(owner, _tokenId);
+    _removeTokenFromOwnerList(owner, _tokenId);
 
     super._burn(_tokenId);
   }
