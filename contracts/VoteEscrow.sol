@@ -169,18 +169,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     return _isApprovedOrOwner(_spender, _tokenId);
   }
 
-  /// @dev Execute transfer of a NFT.
-  ///      Throws unless `msg.sender` is the current owner, an authorized operator, or the approved
-  ///      address for this NFT. (NOTE: `msg.sender` not allowed in internal function so pass `_sender`.)
-  ///      Throws if `_to` is the zero address.
-  ///      Throws if `_from` is not the current owner.
-  ///      Throws if `_tokenId` is not a valid NFT.
-  function _transferFrom(address _from, address _to, uint _tokenId, address _sender) internal {
-    // Check requirements
-    require(_isApprovedOrOwner(_sender, _tokenId), "!not owner or approved");
-    _transfer(_from, _to, _tokenId);
-  }
-
   function _transfer(address _from, address _to, uint _tokenId) internal override {
     require(!voted[_tokenId], "!voted");
     // Remove NFT. Throws if `_tokenId` is not a valid NFT
@@ -193,19 +181,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     super._transfer(_from, _to, _tokenId);
     // Set the block of ownership transfer (for Flash NFT protection)
     ownership_change[_tokenId] = block.number;
-  }
-
-  /// @dev Throws unless `msg.sender` is the current owner, an authorized operator, or the approved address for this NFT.
-  ///      Throws if `_from` is not the current owner.
-  ///      Throws if `_to` is the zero address.
-  ///      Throws if `_tokenId` is not a valid NFT.
-  /// @notice The caller is responsible to confirm that `_to` is capable of receiving NFTs or else
-  ///        they maybe be permanently lost.
-  /// @param _from The current owner of the NFT.
-  /// @param _to The new owner.
-  /// @param _tokenId The NFT to transfer.
-  function transferFrom(address _from, address _to, uint _tokenId) public override {
-    _transferFrom(_from, _to, _tokenId, msg.sender);
   }
 
   /// @dev Transfers the ownership of an NFT from one address to another address.
@@ -232,39 +207,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
       size := extcodesize(account)
     }
     return size > 0;
-  }
-
-  /// @dev Transfers the ownership of an NFT from one address to another address.
-  ///      Throws unless `msg.sender` is the current owner, an authorized operator, or the
-  ///      approved address for this NFT.
-  ///      Throws if `_from` is not the current owner.
-  ///      Throws if `_to` is the zero address.
-  ///      Throws if `_tokenId` is not a valid NFT.
-  ///      If `_to` is a smart contract, it calls `onERC721Received` on `_to` and throws if
-  ///      the return value is not `bytes4(keccak256("onERC721Received(address,address,uint,bytes)"))`.
-  /// @param _from The current owner of the NFT.
-  /// @param _to The new owner.
-  /// @param _tokenId The NFT to transfer.
-  /// @param _data Additional data with no specified format, sent in call to `_to`.
-  function safeTransferFrom(address _from, address _to, uint _tokenId, bytes memory _data) public override {
-    _transferFrom(_from, _to, _tokenId, msg.sender);
-
-    if (_isContract(_to)) {
-      // Throws if transfer destination is a contract which does not implement 'onERC721Received'
-      try IERC721Receiver(_to).onERC721Received(msg.sender, _from, _tokenId, _data) returns (bytes4 response) {
-        if (response != IERC721Receiver(_to).onERC721Received.selector) {
-          revert("ERC721: ERC721Receiver rejected tokens");
-        }
-      } catch (bytes memory reason) {
-        if (reason.length == 0) {
-          revert("ERC721: transfer to non ERC721Receiver implementer");
-        } else {
-          assembly {
-            revert(add(32, reason), mload(reason))
-          }
-        }
-      }
-    }
   }
 
   /*------------------------------------------------------------
