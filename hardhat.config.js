@@ -70,7 +70,7 @@ module.exports = {
     mumbai: {
       accounts: { mnemonic },
       chainId: 80001,
-      url: "https://rpc-mumbai.maticvigil.com"
+      url: OVERRIDE_RPC_URL || "https://rpc-mumbai.maticvigil.com"
     },
   }
 }
