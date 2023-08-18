@@ -179,7 +179,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     bool senderIsApprovedForAll = isApprovedForAll(owner, msg.sender);
     require(senderIsOwner || senderIsApprovedForAll, "!not owner or approved");
     // Set the approval
-    _approve(_tokenId, _approved);
+    _approve(_approved, _tokenId);
   }
 
   /* TRANSFER FUNCTIONS */
@@ -191,7 +191,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     assert(_ownerOf(_tokenId) == _owner);
     if (getApproved(_tokenId) != address(0)) {
       // Reset approvals
-      _approve(_tokenId, address(0));
+      _approve(address(0), _tokenId);
     }
   }
 
@@ -227,9 +227,9 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     _removeTokenFrom(_from, _tokenId);
     // auto re-delegate
     _moveTokenDelegates(delegates(_from), delegates(_to), _tokenId);
+    _addTokenToOwnerList(_to, _tokenId);
     // Add NFT
     super._transfer(_from, _to, _tokenId);
-    _addTokenToOwnerList(_to, _tokenId);
     // Set the block of ownership transfer (for Flash NFT protection)
     ownership_change[_tokenId] = block.number;
   }
@@ -343,17 +343,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     tokenToOwnerIndex[_tokenId] = current_count;
   }
 
-  /// @dev Add a NFT to a given address
-  ///      Throws if `_tokenId` is owned by someone.
-  function _addTokenTo(address _to, uint _tokenId) internal {
-    // Throws if `_tokenId` is owned by someone
-    assert(_ownerOf(_tokenId) == address(0));
-    // Change the owner
-    idToOwner[_tokenId] = _to;
-    // Update owner token index tracking
-    _addTokenToOwnerList(_to, _tokenId);
-  }
-
   /// @dev Function to mint tokens
   ///      Throws if `_to` is zero address.
   ///      Throws if `_tokenId` is owned by someone.
@@ -364,9 +353,10 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     assert(_to != address(0));
     // checkpoint for gov
     _moveTokenDelegates(address(0), delegates(_to), _tokenId);
+
+    _addTokenToOwnerList(_to, _tokenId);
     // Add NFT. Throws if `_tokenId` is owned by someone
     super._mint(_to, _tokenId);
-    _addTokenToOwnerList(_to, _tokenId);
   }
 
   /// @dev Remove a NFT from an index mapping to a given address
@@ -403,9 +393,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   ///      Throws if `_from` is not the current owner.
   function _removeTokenFrom(address _from, uint _tokenId) internal {
     // Throws if `_from` is not the current owner
-    assert(idToOwner[_tokenId] == _from);
-    // Change the owner
-    idToOwner[_tokenId] = address(0);
+    assert(_ownerOf(_tokenId) == _from);
     // Update owner token index tracking
     _removeTokenFromOwnerList(_from, _tokenId);
   }
@@ -1232,7 +1220,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
           : checkpoints[dstRep][0].tokenIds;
         uint32 nextDstRepNum = _findWhatCheckpointToWrite(dstRep);
         uint[] storage dstRepNew = checkpoints[dstRep][nextDstRepNum].tokenIds;
-        uint ownerTokenCount = _balances(owner);
+        uint ownerTokenCount = balanceOf(owner);
         require(dstRepOld.length + ownerTokenCount <= MAX_DELEGATES, "dstRep would have too many tokenIds");
         // All the same
         for (uint i = 0; i < dstRepOld.length; i++) {
