@@ -498,16 +498,17 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
 
   function _afterMint(uint256 _tokenId, bytes memory _metadata) internal virtual override {
     (int128 amount, uint256 end) = abi.decode(_metadata, (int128, uint256));
-    // TODO LockedBalance memory newLocked = LockedBalance(amount, end);
-    // LockedBalance memory oldLocked = LockedBalance(0, 0); // or locked[_tokenId] ?
-    //     _checkpoint(_tokenId, oldLocked, newLocked);
+    LockedBalance memory newLocked = LockedBalance(amount, end);
+    locked[_tokenId] = newLocked;
+    LockedBalance memory oldLocked = LockedBalance(0, 0);
+    _checkpoint(_tokenId, oldLocked, newLocked);
   }
 
   function _beforeBurn(uint256 _tokenId) internal virtual override returns (bytes memory _metadata) {
     _metadata = abi.encode(locked[_tokenId].amount, locked[_tokenId].end);
-    // TODO RESET_STORAGE_BURN:
-    // LockedBalance memory _locked0 = locked[_tokenId];
-    // _checkpoint(_tokenId, _locked0, LockedBalance(0, 0));
+    LockedBalance memory _locked0 = locked[_tokenId];
+    locked[_tokenId] = LockedBalance(0, 0);
+    _checkpoint(_tokenId, _locked0, LockedBalance(0, 0));
   }
 
   /*------------------------------------------------------------
@@ -718,13 +719,12 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     if (unlock_time != 0) {
       _locked.end = unlock_time;
     }
-    locked[_tokenId] = _locked;
 
     // Possibilities:
     // Both old_locked.end could be current or expired (>/< block.timestamp)
     // value == 0 (extend lock) or value > 0 (add to lock or extend lock)
     // _locked.end > block.timestamp (always)
-    _checkpoint(_tokenId, old_locked, _locked);
+    _afterMint(_tokenId, abi.encode(old_locked, _locked));
 
     address from = msg.sender;
     if (_value != 0 && deposit_type != DepositType.MERGE_TYPE && deposit_type != DepositType.SPLIT_TYPE) {
@@ -832,14 +832,13 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     require(block.timestamp >= _locked.end, "The lock didn't expire");
     uint value = uint(int256(_locked.amount));
 
-    locked[_tokenId] = LockedBalance(0, 0);
     uint supply_before = supply;
     supply = supply_before - value;
 
     // old_locked can have either expired <= timestamp or zero end
     // _locked has only 0 end
     // Both can have >= 0 amount
-    _checkpoint(_tokenId, _locked, LockedBalance(0, 0));
+    _beforeBurn(_tokenId);
 
     assert(IERC20(token).transfer(msg.sender, value));
 
@@ -1065,8 +1064,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     uint value0 = uint(int256(_locked0.amount));
     uint end = _locked0.end >= _locked1.end ? _locked0.end : _locked1.end;
 
-    locked[_from] = LockedBalance(0, 0);
-    _checkpoint(_from, _locked0, LockedBalance(0, 0));
+    _beforeBurn(_from);
     _burn(_from);
     _deposit_for(_to, value0, end, _locked1, DepositType.MERGE_TYPE);
   }
@@ -1100,8 +1098,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     }
 
     // remove old data
-    locked[_tokenId] = LockedBalance(0, 0);
-    _checkpoint(_tokenId, _locked, LockedBalance(0, 0));
+    _beforeBurn(_tokenId);
     _burn(_tokenId);
 
     // save end
