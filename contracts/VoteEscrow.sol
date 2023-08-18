@@ -411,7 +411,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   }
 
   function _burn(uint _tokenId) internal override {
-    require(_isApprovedOrOwner(msg.sender, _tokenId), "caller is not owner nor approved");
+    require(_isApprovedOrOwner(msg.sender, _tokenId), "not owner nor approved");
 
     address owner = ownerOf(_tokenId);
 
