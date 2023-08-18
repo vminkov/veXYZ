@@ -8,6 +8,8 @@ import { Ownable2StepUpgradeable } from "@openzeppelin/contracts-upgradeable/acc
 abstract contract XERC721Upgradeable is ERC721Upgradeable, Ownable2StepUpgradeable {
   event BridgeAdded(address indexed bridge);
   event BridgeRemoved(address indexed bridge);
+  event MintAsBridge(uint _tokenId, bytes _metadata);
+  event BurnAsBridge(uint _tokenId, bytes _metadata);
 
   mapping(address => bool) internal _whitelistedBridges;
 
@@ -49,12 +51,15 @@ abstract contract XERC721Upgradeable is ERC721Upgradeable, Ownable2StepUpgradeab
   function mint(address _to, uint256 _tokenId, bytes memory _metadata) public onlyBridge {
     _mint(_to, _tokenId);
     _afterMint(_tokenId, _metadata);
+
+    emit MintAsBridge(_tokenId, _metadata);
   }
 
-  // specify the locked assets amount and unlock time metadata
   function burn(uint256 _tokenId) public onlyBridge returns (bytes memory _metadata) {
     _metadata = _beforeBurn(_tokenId);
     _burn(_tokenId);
+
+    emit BurnAsBridge(_tokenId, _metadata);
   }
 
   function _afterMint(uint256 _tokenId, bytes memory _metadata) internal virtual;
