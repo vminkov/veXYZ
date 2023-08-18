@@ -339,8 +339,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   /// @param _from address of the sender
   /// @param _tokenId uint ID Of the token to be removed
   function _removeTokenFromOwnerList(address _from, uint _tokenId) internal {
-    // Throws if `_from` is not the current owner
-    assert(_ownerOf(_tokenId) == _from);
     // Delete
     uint current_count = balanceOf(_from) - 1;
     uint current_index = tokenToOwnerIndex[_tokenId];
