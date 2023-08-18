@@ -186,10 +186,14 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   ///      Throws if `_to` is the zero address.
   ///      Throws if `_from` is not the current owner.
   ///      Throws if `_tokenId` is not a valid NFT.
-  function _transfer(address _from, address _to, uint _tokenId, address _sender) internal override {
-    require(!voted[_tokenId], "!voted");
+  function _transferFrom(address _from, address _to, uint _tokenId, address _sender) internal {
     // Check requirements
     require(_isApprovedOrOwner(_sender, _tokenId), "!not owner or approved");
+    _transfer(_from, _to, _tokenId);
+  }
+
+  function _transfer(address _from, address _to, uint _tokenId) internal override {
+    require(!voted[_tokenId], "!voted");
     // Clear approval. Throws if `_from` is not the current owner
     _clearApproval(_from, _tokenId);
     // Remove NFT. Throws if `_tokenId` is not a valid NFT
@@ -214,7 +218,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   /// @param _to The new owner.
   /// @param _tokenId The NFT to transfer.
   function transferFrom(address _from, address _to, uint _tokenId) public override {
-    _transfer(_from, _to, _tokenId, msg.sender);
+    _transferFrom(_from, _to, _tokenId, msg.sender);
   }
 
   // TODO does transfer() skip the checks of _transferFrom?
@@ -258,7 +262,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   /// @param _tokenId The NFT to transfer.
   /// @param _data Additional data with no specified format, sent in call to `_to`.
   function safeTransferFrom(address _from, address _to, uint _tokenId, bytes memory _data) public override {
-    _transfer(_from, _to, _tokenId, msg.sender);
+    _transferFrom(_from, _to, _tokenId, msg.sender);
 
     if (_isContract(_to)) {
       // Throws if transfer destination is a contract which does not implement 'onERC721Received'
