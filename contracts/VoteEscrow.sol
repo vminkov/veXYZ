@@ -75,6 +75,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   // RESET_STORAGE_BURN: this is not tokenId-related metadata
   mapping(uint => Point) public point_history; // epoch -> unsigned point
 
+  // TODO remove?
   /// @dev Mapping of interface id to bool about whether or not it's supported
   mapping(bytes4 => bool) internal supportedInterfaces;
 
@@ -162,26 +163,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
                               ERC721 LOGIC
     ------------------------------------------------------------*/
 
-  /// @dev Set or reaffirm the approved address for an NFT. The zero address indicates there is no approved address.
-  ///      Throws unless `msg.sender` is the current NFT owner, or an authorized operator of the current owner.
-  ///      Throws if `_tokenId` is not a valid NFT. (NOTE: This is not written the EIP)
-  ///      Throws if `_approved` is the current owner. (NOTE: This is not written the EIP)
-  /// @param _approved Address to be approved for the given NFT ID.
-  /// @param _tokenId ID of the token to be approved.
-  function approve(address _approved, uint _tokenId) public override {
-    address owner = _ownerOf(_tokenId);
-    // Throws if `_tokenId` is not a valid NFT
-    require(owner != address(0), "!owner zero");
-    // Throws if `_approved` is the current owner
-    require(_approved != owner, "!owner");
-    // Check requirements
-    bool senderIsOwner = (_ownerOf(_tokenId) == msg.sender);
-    bool senderIsApprovedForAll = isApprovedForAll(owner, msg.sender);
-    require(senderIsOwner || senderIsApprovedForAll, "!not owner or approved");
-    // Set the approval
-    _approve(_approved, _tokenId);
-  }
-
   /* TRANSFER FUNCTIONS */
   /// @dev Clear an approval of a given address
   ///      Throws if `_owner` is not the current owner.
@@ -195,18 +176,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     }
   }
 
-  /// @dev Returns whether the given spender can transfer a given token ID
-  /// @param _spender address of the spender to query
-  /// @param _tokenId uint ID of the token to be transferred
-  /// @return bool whether the msg.sender is approved for the given token ID, is an operator of the owner, or is the owner of the token
-  function _isApprovedOrOwner(address _spender, uint _tokenId) internal view override returns (bool) {
-    address owner = _ownerOf(_tokenId);
-    bool spenderIsOwner = owner == _spender;
-    bool spenderIsApproved = _spender == getApproved(_tokenId);
-    bool spenderIsApprovedForAll = isApprovedForAll(owner, _spender);
-    return spenderIsOwner || spenderIsApproved || spenderIsApprovedForAll;
-  }
-
   function isApprovedOrOwner(address _spender, uint _tokenId) external view returns (bool) {
     return _isApprovedOrOwner(_spender, _tokenId);
   }
@@ -217,7 +186,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   ///      Throws if `_to` is the zero address.
   ///      Throws if `_from` is not the current owner.
   ///      Throws if `_tokenId` is not a valid NFT.
-  function _transferFrom(address _from, address _to, uint _tokenId, address _sender) internal {
+  function _transfer(address _from, address _to, uint _tokenId, address _sender) internal override {
     require(!voted[_tokenId], "!voted");
     // Check requirements
     require(_isApprovedOrOwner(_sender, _tokenId), "!not owner or approved");
@@ -245,8 +214,10 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   /// @param _to The new owner.
   /// @param _tokenId The NFT to transfer.
   function transferFrom(address _from, address _to, uint _tokenId) public override {
-    _transferFrom(_from, _to, _tokenId, msg.sender);
+    _transfer(_from, _to, _tokenId, msg.sender);
   }
+
+  // TODO does transfer() skip the checks of _transferFrom?
 
   /// @dev Transfers the ownership of an NFT from one address to another address.
   ///      Throws unless `msg.sender` is the current owner, an authorized operator, or the
@@ -287,7 +258,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   /// @param _tokenId The NFT to transfer.
   /// @param _data Additional data with no specified format, sent in call to `_to`.
   function safeTransferFrom(address _from, address _to, uint _tokenId, bytes memory _data) public override {
-    _transferFrom(_from, _to, _tokenId, msg.sender);
+    _transfer(_from, _to, _tokenId, msg.sender);
 
     if (_isContract(_to)) {
       // Throws if transfer destination is a contract which does not implement 'onERC721Received'
