@@ -63,6 +63,8 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   );
   event Withdraw(address indexed provider, uint tokenId, uint value, uint ts);
   event Supply(uint prevSupply, uint supply);
+  event MintAsBridge(uint _tokenId, bytes _metadata);
+  event BurnAsBridge(uint _tokenId, bytes _metadata);
 
   /*------------------------------------------------------------
                                CONSTRUCTOR
@@ -502,6 +504,8 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     locked[_tokenId] = newLocked;
     LockedBalance memory oldLocked = LockedBalance(0, 0);
     _checkpoint(_tokenId, oldLocked, newLocked);
+
+    emit MintAsBridge(_tokenId, _metadata);
   }
 
   function _beforeBurn(uint256 _tokenId) internal virtual override returns (bytes memory _metadata) {
@@ -509,6 +513,8 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     LockedBalance memory _locked0 = locked[_tokenId];
     locked[_tokenId] = LockedBalance(0, 0);
     _checkpoint(_tokenId, _locked0, LockedBalance(0, 0));
+
+    emit BurnAsBridge(_tokenId, _metadata);
   }
 
   /*------------------------------------------------------------
