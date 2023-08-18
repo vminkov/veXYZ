@@ -72,7 +72,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   address public voter;
   address public team;
 
-  // RESET_STORAGE_BURN: this is not tokenId-related metadata
   mapping(uint => Point) public point_history; // epoch -> unsigned point
 
   // TODO remove?
@@ -162,8 +161,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   /*------------------------------------------------------------
                               ERC721 LOGIC
     ------------------------------------------------------------*/
-
-  /* TRANSFER FUNCTIONS */
 
   function isApprovedOrOwner(address _spender, uint _tokenId) external view returns (bool) {
     return _isApprovedOrOwner(_spender, _tokenId);
@@ -304,10 +301,10 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   mapping(uint => uint) public user_point_epoch;
   // RESET_STORAGE_BURN: the var seems to be reset/updated on _beforeBurn/_checkpoint
   mapping(uint => Point[1000000000]) public user_point_history; // user -> Point[user_epoch]
-  // TODO RESET_STORAGE_BURN: the var should be reset/updated on _beforeBurn/_afterMint
+  // RESET_STORAGE_BURN: the var should be reset/updated on _beforeBurn/_afterMint and _deposit_for
+  // TODO more checks that it is only ever modified on the master chain
   mapping(uint => LockedBalance) public locked;
   uint public epoch;
-  // RESET_STORAGE_BURN: this var does not seem to be _tokenId-related
   mapping(uint => int128) public slope_changes; // time -> signed slope change
   uint public supply;
 
