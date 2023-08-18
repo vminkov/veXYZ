@@ -221,8 +221,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     _transferFrom(_from, _to, _tokenId, msg.sender);
   }
 
-  // TODO does transfer() skip the checks of _transferFrom?
-
   /// @dev Transfers the ownership of an NFT from one address to another address.
   ///      Throws unless `msg.sender` is the current owner, an authorized operator, or the
   ///      approved address for this NFT.
