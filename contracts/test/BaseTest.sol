@@ -100,7 +100,7 @@ contract BaseTest is Test {
     ve.addBridge(bridge1);
   }
 
-  // VoteEscrow 
+  // VoteEscrow
   // [METADATA STORAGE]
   function testVersion() public {
     string memory version = ve.version();
@@ -112,7 +112,7 @@ contract BaseTest is Test {
     address newTeam = address(999);
 
     ve.setTeam(newTeam);
-    
+
     assertEq(newTeam, address(999), "testSetTeam/incorrect-team");
   }
 
@@ -260,7 +260,7 @@ contract BaseTest is Test {
     assertApproxEqAbs(ve.balanceOfNFT(tokenId), 20e18, 1e17, "wrong voting power");
   }
 
-  function _helperCreateLock() internal returns(uint256 tokenId) {
+  function _helperCreateLock() internal returns (uint256 tokenId) {
     ionicToken.mint(address(this), 100e18);
 
     ionicToken.approve(address(ve), 1e36);
