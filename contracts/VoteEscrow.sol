@@ -284,7 +284,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   ///      Throws if `_from` is not the current owner.
   ///      Throws if `_tokenId` is not a valid NFT.
   function _transferFrom(address _from, address _to, uint _tokenId, address _sender) internal {
-    require(!voted[_tokenId], "attached");
+    require(!voted[_tokenId], "!voted");
     // Check requirements
     require(_isApprovedOrOwner(_sender, _tokenId), "!not owner or approved");
     // Clear approval. Throws if `_from` is not the current owner
@@ -816,7 +816,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   /// @dev Only possible if the lock has expired
   function withdraw(uint _tokenId) external nonReentrant onlyOnMasterChain {
     assert(_isApprovedOrOwner(msg.sender, _tokenId));
-    require(!voted[_tokenId], "attached");
+    require(!voted[_tokenId], "!voted");
 
     LockedBalance memory _locked = locked[_tokenId];
     require(block.timestamp >= _locked.end, "The lock didn't expire");
@@ -1045,7 +1045,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   }
 
   function merge(uint _from, uint _to) external {
-    require(!voted[_from], "attached");
+    require(!voted[_from], "!voted");
     require(_from != _to, "!from==to");
     require(_isApprovedOrOwner(msg.sender, _from), "!from approved or owner");
     require(_isApprovedOrOwner(msg.sender, _to), "!to approved or owner");
@@ -1070,7 +1070,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     require(amounts.length > 0, "zero len amounts input");
 
     // check permission and vote
-    require(!voted[_tokenId], "attached");
+    require(!voted[_tokenId], "!voted");
     require(_isApprovedOrOwner(msg.sender, _tokenId), "!sender approved or owner");
 
     // save old data and totalWeight

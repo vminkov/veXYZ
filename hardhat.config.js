@@ -1,4 +1,5 @@
-require("dotenv").config();
+const { configDotenv } = require("dotenv");
+
 require("@nomiclabs/hardhat-etherscan");
 require("@nomiclabs/hardhat-waffle");
 require('@nomiclabs/hardhat-truffle5');
@@ -11,8 +12,54 @@ require('hardhat-abi-exporter');
 require('hardhat-storage-layout');
 require('@openzeppelin/hardhat-upgrades');
 const fs = require("fs");
+require('hardhat-deploy');
+var HardhatUserConfig = require("hardhat/types/config").HardhatUserConfig;
+
+console.info('loading the .env config...');
+configDotenv();
+
+const mnemonic =
+    process.env.MNEMONIC ||
+    "test test test test test test test test test test test junk";
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
-  solidity: "0.8.13",
-};
+  solidity: {
+    compilers: [
+      {
+        version: "0.8.13",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200
+          }
+        }
+      }
+    ]
+  },
+  paths: {
+    sources: "./none",
+    artifacts: "./out"
+  },
+  namedAccounts: {
+    deployer: { default: 0 },
+    alice: { default: 1 },
+    bob: { default: 2 },
+    rando: { default: 3 }
+  },
+  networks: {
+    // This is the unchangeable default network which is started with `hardhat node`
+    hardhat: {
+      accounts: { mnemonic },
+      allowUnlimitedContractSize: true,
+      chainId: 1337,
+      gas: 25e6,
+      gasPrice: 20e10,
+    },
+    arbitrum: {
+      url: `https://arb1.arbitrum.io/rpc`,
+      accounts: { mnemonic },
+      chainId: 42161
+    },
+  }
+}
