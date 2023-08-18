@@ -625,11 +625,9 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     // _locked has only 0 end
     // Both can have >= 0 amount
     _beforeBurn(_tokenId);
+    _burn(_tokenId);
 
     assert(IERC20(token).transfer(msg.sender, value));
-
-    // Burn the NFT
-    _burn(_tokenId);
 
     emit Withdraw(msg.sender, _tokenId, value, block.timestamp);
     emit Supply(supply_before, supply_before - value);
@@ -853,6 +851,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
 
     _beforeBurn(_from);
     _burn(_from);
+
     _deposit_for(_to, value0, end, _locked1, DepositType.MERGE_TYPE);
   }
 
