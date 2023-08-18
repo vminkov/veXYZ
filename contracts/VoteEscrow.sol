@@ -730,7 +730,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     // Both old_locked.end could be current or expired (>/< block.timestamp)
     // value == 0 (extend lock) or value > 0 (add to lock or extend lock)
     // _locked.end > block.timestamp (always)
-    _afterMint(_tokenId, abi.encode(old_locked, _locked));
+    _afterMint(_tokenId, abi.encode(_locked.amount, _locked.end));
 
     address from = msg.sender;
     if (_value != 0 && deposit_type != DepositType.MERGE_TYPE && deposit_type != DepositType.SPLIT_TYPE) {
