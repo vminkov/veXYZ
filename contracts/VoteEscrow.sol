@@ -164,17 +164,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     ------------------------------------------------------------*/
 
   /* TRANSFER FUNCTIONS */
-  /// @dev Clear an approval of a given address
-  ///      Throws if `_owner` is not the current owner.
-  // TODO is fn needed?
-  function _clearApproval(address _owner, uint _tokenId) internal {
-    // Throws if `_owner` is not the current owner
-    assert(_ownerOf(_tokenId) == _owner);
-    if (getApproved(_tokenId) != address(0)) {
-      // Reset approvals
-      _approve(address(0), _tokenId);
-    }
-  }
 
   function isApprovedOrOwner(address _spender, uint _tokenId) external view returns (bool) {
     return _isApprovedOrOwner(_spender, _tokenId);
@@ -194,8 +183,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
 
   function _transfer(address _from, address _to, uint _tokenId) internal override {
     require(!voted[_tokenId], "!voted");
-    // Clear approval. Throws if `_from` is not the current owner
-    _clearApproval(_from, _tokenId);
     // Remove NFT. Throws if `_tokenId` is not a valid NFT
     _removeTokenFromOwnerList(_from, _tokenId);
     // auto re-delegate
