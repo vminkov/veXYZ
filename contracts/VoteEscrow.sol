@@ -63,6 +63,8 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   );
   event Withdraw(address indexed provider, uint tokenId, uint value, uint ts);
   event Supply(uint prevSupply, uint supply);
+  event MintAsBridge(uint _tokenId, bytes _metadata);
+  event BurnAsBridge(uint _tokenId, bytes _metadata);
 
   /*------------------------------------------------------------
                                CONSTRUCTOR
@@ -72,6 +74,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   address public voter;
   address public team;
 
+  // RESET_STORAGE_BURN: this is not tokenId-related metadata
   mapping(uint => Point) public point_history; // epoch -> unsigned point
 
   /// @dev Mapping of interface id to bool about whether or not it's supported
@@ -156,9 +159,11 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     ------------------------------------------------------------*/
 
   /// @dev Mapping from NFT ID to the address that owns it.
+  // RESET_STORAGE_BURN: this var cleared on _burn/_removeTokenFrom
   mapping(uint => address) internal idToOwner;
 
   /// @dev Mapping from owner address to count of his tokens.
+  // RESET_STORAGE_BURN: this var decreased on _burn/_removeTokenFrom
   mapping(address => uint) internal ownerToNFTTokenCount;
 
   /// @dev Returns the address of the owner of the NFT.
@@ -186,9 +191,11 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     ------------------------------------------------------------*/
 
   /// @dev Mapping from NFT ID to approved address.
+  // RESET_STORAGE_BURN: this var is reset on _burn/approve(address(0), ...)
   mapping(uint => address) internal idToApprovals;
 
   /// @dev Mapping from owner address to mapping of operator addresses.
+  // RESET_STORAGE_BURN: var not related to a specific _tokenId
   mapping(address => mapping(address => bool)) internal ownerToOperators;
 
   mapping(uint => uint) public ownership_change;
@@ -203,7 +210,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   /// @param _owner The address that owns the NFTs.
   /// @param _operator The address that acts on behalf of the owner.
   function isApprovedForAll(address _owner, address _operator) public view override returns (bool) {
-    return (ownerToOperators[_owner])[_operator];
+    return ownerToOperators[_owner][_operator];
   }
 
   /*------------------------------------------------------------
@@ -224,7 +231,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     require(_approved != owner, "!owner");
     // Check requirements
     bool senderIsOwner = (idToOwner[_tokenId] == msg.sender);
-    bool senderIsApprovedForAll = (ownerToOperators[owner])[msg.sender];
+    bool senderIsApprovedForAll = ownerToOperators[owner][msg.sender];
     require(senderIsOwner || senderIsApprovedForAll, "!not owner or approved");
     // Set the approval
     idToApprovals[_tokenId] = _approved;
@@ -264,7 +271,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     address owner = idToOwner[_tokenId];
     bool spenderIsOwner = owner == _spender;
     bool spenderIsApproved = _spender == idToApprovals[_tokenId];
-    bool spenderIsApprovedForAll = (ownerToOperators[owner])[_spender];
+    bool spenderIsApprovedForAll = ownerToOperators[owner][_spender];
     return spenderIsOwner || spenderIsApproved || spenderIsApprovedForAll;
   }
 
@@ -279,7 +286,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   ///      Throws if `_from` is not the current owner.
   ///      Throws if `_tokenId` is not a valid NFT.
   function _transferFrom(address _from, address _to, uint _tokenId, address _sender) internal {
-    require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
+    require(!voted[_tokenId], "!voted");
     // Check requirements
     require(_isApprovedOrOwner(_sender, _tokenId), "!not owner or approved");
     // Clear approval. Throws if `_from` is not the current owner
@@ -383,9 +390,11 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     ------------------------------------------------------------*/
 
   /// @dev Mapping from owner address to mapping of index to tokenIds
+  // RESET_STORAGE_BURN: this var is reset on _burn/_removeTokenFromOwnerList
   mapping(address => mapping(uint => uint)) internal ownerToNFTokenIdList;
 
   /// @dev Mapping from NFT ID to index of owner
+  // RESET_STORAGE_BURN: this var is reset on _burn/_removeTokenFromOwnerList
   mapping(uint => uint) internal tokenToOwnerIndex;
 
   /// @dev  Get token by index
@@ -484,20 +493,42 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     // checkpoint for gov
     _moveTokenDelegates(delegates(owner), address(0), _tokenId);
     // Remove token
-    //_removeTokenFrom(msg.sender, _tokenId);
     _removeTokenFrom(owner, _tokenId);
 
-    emit Transfer(owner, address(0), _tokenId);
+    super._burn(_tokenId);
+  }
+
+  function _afterMint(uint256 _tokenId, bytes memory _metadata) internal virtual override {
+    (int128 amount, uint256 end) = abi.decode(_metadata, (int128, uint256));
+    LockedBalance memory newLocked = LockedBalance(amount, end);
+    locked[_tokenId] = newLocked;
+    LockedBalance memory oldLocked = LockedBalance(0, 0);
+    _checkpoint(_tokenId, oldLocked, newLocked);
+
+    emit MintAsBridge(_tokenId, _metadata);
+  }
+
+  function _beforeBurn(uint256 _tokenId) internal virtual override returns (bytes memory _metadata) {
+    _metadata = abi.encode(locked[_tokenId].amount, locked[_tokenId].end);
+    LockedBalance memory _locked0 = locked[_tokenId];
+    locked[_tokenId] = LockedBalance(0, 0);
+    _checkpoint(_tokenId, _locked0, LockedBalance(0, 0));
+
+    emit BurnAsBridge(_tokenId, _metadata);
   }
 
   /*------------------------------------------------------------
                              ESCROW STORAGE
     ------------------------------------------------------------*/
 
+  // TODO RESET_STORAGE_BURN: the var seems to be reset/updated on _beforeBurn/_checkpoint
   mapping(uint => uint) public user_point_epoch;
+  // TODO RESET_STORAGE_BURN: the var seems to be reset/updated on _beforeBurn/_checkpoint
   mapping(uint => Point[1000000000]) public user_point_history; // user -> Point[user_epoch]
+  // TODO RESET_STORAGE_BURN: the var should be reset/updated on _beforeBurn/_checkpoint
   mapping(uint => LockedBalance) public locked;
   uint public epoch;
+  // TODO RESET_STORAGE_BURN: this var does not seem to be _tokenId-related
   mapping(uint => int128) public slope_changes; // time -> signed slope change
   uint public supply;
 
@@ -694,13 +725,12 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     if (unlock_time != 0) {
       _locked.end = unlock_time;
     }
-    locked[_tokenId] = _locked;
 
     // Possibilities:
     // Both old_locked.end could be current or expired (>/< block.timestamp)
     // value == 0 (extend lock) or value > 0 (add to lock or extend lock)
     // _locked.end > block.timestamp (always)
-    _checkpoint(_tokenId, old_locked, _locked);
+    _afterMint(_tokenId, abi.encode(old_locked, _locked));
 
     address from = msg.sender;
     if (_value != 0 && deposit_type != DepositType.MERGE_TYPE && deposit_type != DepositType.SPLIT_TYPE) {
@@ -802,20 +832,19 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   /// @dev Only possible if the lock has expired
   function withdraw(uint _tokenId) external nonReentrant onlyOnMasterChain {
     assert(_isApprovedOrOwner(msg.sender, _tokenId));
-    require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
+    require(!voted[_tokenId], "!voted");
 
     LockedBalance memory _locked = locked[_tokenId];
     require(block.timestamp >= _locked.end, "The lock didn't expire");
     uint value = uint(int256(_locked.amount));
 
-    locked[_tokenId] = LockedBalance(0, 0);
     uint supply_before = supply;
     supply = supply_before - value;
 
     // old_locked can have either expired <= timestamp or zero end
     // _locked has only 0 end
     // Both can have >= 0 amount
-    _checkpoint(_tokenId, _locked, LockedBalance(0, 0));
+    _beforeBurn(_tokenId);
 
     assert(IERC20(token).transfer(msg.sender, value));
 
@@ -828,7 +857,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
 
   /*------------------------------------------------------------/
                            GAUGE VOTING STORAGE
-    ------------------------------------------------------------*/
+   ------------------------------------------------------------*/
 
   // The following ERC20/minime-compatible methods are not real balanceOf and supply!
   // They measure the weights for the purpose of voting, so they don't represent
@@ -1013,7 +1042,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
                             GAUGE VOTING LOGIC
     ------------------------------------------------------------*/
 
-  mapping(uint => uint) public attachments;
   mapping(uint => bool) public voted;
 
   function setVoter(address _voter) external {
@@ -1031,18 +1059,8 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     voted[_tokenId] = false;
   }
 
-  function attach(uint _tokenId) external {
-    require(msg.sender == voter, "!voter");
-    attachments[_tokenId] = attachments[_tokenId] + 1;
-  }
-
-  function detach(uint _tokenId) external {
-    require(msg.sender == voter, "!voter");
-    attachments[_tokenId] = attachments[_tokenId] - 1;
-  }
-
   function merge(uint _from, uint _to) external {
-    require(attachments[_from] == 0 && !voted[_from], "attached");
+    require(!voted[_from], "!voted");
     require(_from != _to, "!from==to");
     require(_isApprovedOrOwner(msg.sender, _from), "!from approved or owner");
     require(_isApprovedOrOwner(msg.sender, _to), "!to approved or owner");
@@ -1052,8 +1070,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     uint value0 = uint(int256(_locked0.amount));
     uint end = _locked0.end >= _locked1.end ? _locked0.end : _locked1.end;
 
-    locked[_from] = LockedBalance(0, 0);
-    _checkpoint(_from, _locked0, LockedBalance(0, 0));
+    _beforeBurn(_from);
     _burn(_from);
     _deposit_for(_to, value0, end, _locked1, DepositType.MERGE_TYPE);
   }
@@ -1067,7 +1084,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     require(amounts.length > 0, "zero len amounts input");
 
     // check permission and vote
-    require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
+    require(!voted[_tokenId], "!voted");
     require(_isApprovedOrOwner(msg.sender, _tokenId), "!sender approved or owner");
 
     // save old data and totalWeight
@@ -1087,8 +1104,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     }
 
     // remove old data
-    locked[_tokenId] = LockedBalance(0, 0);
-    _checkpoint(_tokenId, _locked, LockedBalance(0, 0));
+    _beforeBurn(_tokenId);
     _burn(_tokenId);
 
     // save end
@@ -1309,6 +1325,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     }
   }
 
+  // RESET_STORAGE_BURN: delegation is reset on _burn/_moveTokenDelegates(..., address(0), ...)
   function _delegate(address delegator, address delegatee) internal onlyOnMasterChain {
     /// @notice differs from `_delegate()` in `Comp.sol` to use `delegates` override method to simulate auto-delegation
     address currentDelegate = delegates(delegator);
