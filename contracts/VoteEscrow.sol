@@ -183,32 +183,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     ownership_change[_tokenId] = block.number;
   }
 
-  /// @dev Transfers the ownership of an NFT from one address to another address.
-  ///      Throws unless `msg.sender` is the current owner, an authorized operator, or the
-  ///      approved address for this NFT.
-  ///      Throws if `_from` is not the current owner.
-  ///      Throws if `_to` is the zero address.
-  ///      Throws if `_tokenId` is not a valid NFT.
-  ///      If `_to` is a smart contract, it calls `onERC721Received` on `_to` and throws if
-  ///      the return value is not `bytes4(keccak256("onERC721Received(address,address,uint,bytes)"))`.
-  /// @param _from The current owner of the NFT.
-  /// @param _to The new owner.
-  /// @param _tokenId The NFT to transfer.
-  function safeTransferFrom(address _from, address _to, uint _tokenId) public override {
-    safeTransferFrom(_from, _to, _tokenId, "");
-  }
-
-  function _isContract(address account) internal view returns (bool) {
-    // This method relies on extcodesize, which returns 0 for contracts in
-    // construction, since the code is only stored at the end of the
-    // constructor execution.
-    uint size;
-    assembly {
-      size := extcodesize(account)
-    }
-    return size > 0;
-  }
-
   /*------------------------------------------------------------
                               ERC165 LOGIC
     ------------------------------------------------------------*/
