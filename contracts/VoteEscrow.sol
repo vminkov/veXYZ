@@ -72,7 +72,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   address public voter;
   address public team;
 
-  // does not seem to be NFT metadata
+  // RESET_STORAGE_BURN: this is not tokenId-related metadata
   mapping(uint => Point) public point_history; // epoch -> unsigned point
 
   /// @dev Mapping of interface id to bool about whether or not it's supported
@@ -157,11 +157,11 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     ------------------------------------------------------------*/
 
   /// @dev Mapping from NFT ID to the address that owns it.
-  // cleared on _removeTokenFrom
+  // RESET_STORAGE_BURN: this var cleared on _burn/_removeTokenFrom
   mapping(uint => address) internal idToOwner;
 
   /// @dev Mapping from owner address to count of his tokens.
-  // decreased on _removeTokenFrom
+  // RESET_STORAGE_BURN: this var decreased on _burn/_removeTokenFrom
   mapping(address => uint) internal ownerToNFTTokenCount;
 
   /// @dev Returns the address of the owner of the NFT.
@@ -189,11 +189,11 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     ------------------------------------------------------------*/
 
   /// @dev Mapping from NFT ID to approved address.
-  // TODO reset on _clearApproval
+  // RESET_STORAGE_BURN: this var is reset on _burn/approve(address(0), ...)
   mapping(uint => address) internal idToApprovals;
 
   /// @dev Mapping from owner address to mapping of operator addresses.
-  // TODO not reset on _burn
+  // RESET_STORAGE_BURN: var not related to a specific _tokenId
   mapping(address => mapping(address => bool)) internal ownerToOperators;
 
   mapping(uint => uint) public ownership_change;
@@ -208,7 +208,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   /// @param _owner The address that owns the NFTs.
   /// @param _operator The address that acts on behalf of the owner.
   function isApprovedForAll(address _owner, address _operator) public view override returns (bool) {
-    return (ownerToOperators[_owner])[_operator];
+    return ownerToOperators[_owner][_operator];
   }
 
   /*------------------------------------------------------------
@@ -229,7 +229,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     require(_approved != owner, "!owner");
     // Check requirements
     bool senderIsOwner = (idToOwner[_tokenId] == msg.sender);
-    bool senderIsApprovedForAll = (ownerToOperators[owner])[msg.sender];
+    bool senderIsApprovedForAll = ownerToOperators[owner][msg.sender];
     require(senderIsOwner || senderIsApprovedForAll, "!not owner or approved");
     // Set the approval
     idToApprovals[_tokenId] = _approved;
@@ -269,7 +269,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     address owner = idToOwner[_tokenId];
     bool spenderIsOwner = owner == _spender;
     bool spenderIsApproved = _spender == idToApprovals[_tokenId];
-    bool spenderIsApprovedForAll = (ownerToOperators[owner])[_spender];
+    bool spenderIsApprovedForAll = ownerToOperators[owner][_spender];
     return spenderIsOwner || spenderIsApproved || spenderIsApprovedForAll;
   }
 
@@ -388,11 +388,11 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     ------------------------------------------------------------*/
 
   /// @dev Mapping from owner address to mapping of index to tokenIds
-  // reset on _burn
+  // RESET_STORAGE_BURN: this var is reset on _burn/_removeTokenFromOwnerList
   mapping(address => mapping(uint => uint)) internal ownerToNFTokenIdList;
 
   /// @dev Mapping from NFT ID to index of owner
-  // reset on _burn
+  // RESET_STORAGE_BURN: this var is reset on _burn/_removeTokenFromOwnerList
   mapping(uint => uint) internal tokenToOwnerIndex;
 
   /// @dev  Get token by index
@@ -486,11 +486,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
 
     address owner = ownerOf(_tokenId);
 
-    // TODO
-    // LockedBalance memory _locked0 = locked[_tokenId];
-    //    _checkpoint(_tokenId, _locked0, LockedBalance(0, 0));
     // Clear approval
-    // TODO     _clearApproval(_from, _tokenId);
     approve(address(0), _tokenId);
     // checkpoint for gov
     _moveTokenDelegates(delegates(owner), address(0), _tokenId);
@@ -500,18 +496,32 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     super._burn(_tokenId);
   }
 
+  function _afterMint(uint256 _tokenId, bytes memory _metadata) internal virtual override {
+    (int128 amount, uint256 end) = abi.decode(_metadata, (int128, uint256));
+    // TODO LockedBalance memory newLocked = LockedBalance(amount, end);
+    // LockedBalance memory oldLocked = LockedBalance(0, 0); // or locked[_tokenId] ?
+    //     _checkpoint(_tokenId, oldLocked, newLocked);
+  }
+
+  function _beforeBurn(uint256 _tokenId) internal virtual override returns (bytes memory _metadata) {
+    _metadata = abi.encode(locked[_tokenId].amount, locked[_tokenId].end);
+    // TODO RESET_STORAGE_BURN:
+    // LockedBalance memory _locked0 = locked[_tokenId];
+    // _checkpoint(_tokenId, _locked0, LockedBalance(0, 0));
+  }
+
   /*------------------------------------------------------------
                              ESCROW STORAGE
     ------------------------------------------------------------*/
 
-  // TODO doesn't seem to be reset on _burn; checkpoints - not to be reset?
+  // TODO RESET_STORAGE_BURN: the var seems to be reset/updated on _beforeBurn/_checkpoint
   mapping(uint => uint) public user_point_epoch;
-  // checkpoints - not to be reset?
+  // TODO RESET_STORAGE_BURN: the var seems to be reset/updated on _beforeBurn/_checkpoint
   mapping(uint => Point[1000000000]) public user_point_history; // user -> Point[user_epoch]
-  // reset on split
+  // TODO RESET_STORAGE_BURN: the var should be reset/updated on _beforeBurn/_checkpoint
   mapping(uint => LockedBalance) public locked;
   uint public epoch;
-  // checkpoints - not to be reset?
+  // TODO RESET_STORAGE_BURN: this var does not seem to be _tokenId-related
   mapping(uint => int128) public slope_changes; // time -> signed slope change
   uint public supply;
 
@@ -1312,8 +1322,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     }
   }
 
-  // remove all delegation before bridging
-  // or just not allow delegate vote on other chains
+  // RESET_STORAGE_BURN: delegation is reset on _burn/_moveTokenDelegates(..., address(0), ...)
   function _delegate(address delegator, address delegatee) internal onlyOnMasterChain {
     /// @notice differs from `_delegate()` in `Comp.sol` to use `delegates` override method to simulate auto-delegation
     address currentDelegate = delegates(delegator);
