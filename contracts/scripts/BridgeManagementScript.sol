@@ -25,7 +25,7 @@ contract BridgeManagementScript is Script {
     MockBridge bridge = MockBridge(bridgeAddr);
     VoteEscrow ve = VoteEscrow(veAddr);
 
-    ve.addBridge(bridgeAddr);
+
 
     vm.stopBroadcast();
   }
