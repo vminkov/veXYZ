@@ -25,7 +25,8 @@ contract BridgeManagementScript is Script {
     MockBridge bridge = MockBridge(bridgeAddr);
     VoteEscrow ve = VoteEscrow(veAddr);
 
-
+    //ve.setToken(ionicToken);
+    //ve.create_lock(200e18, 4 weeks);
 
     vm.stopBroadcast();
   }

@@ -87,6 +87,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   /// @dev ERC165 interface ID of ERC721Metadata
   bytes4 internal constant ERC721_METADATA_INTERFACE_ID = 0x5b5e139f;
 
+  // TODO remove
   /// @dev Current count of token
   uint internal tokenId;
 
@@ -112,7 +113,10 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     _transferOwnership(msg.sender);
 
     masterChainId = ARBITRUM_ONE;
+
+    require(token_addr != address(0), "");
     token = token_addr;
+
     voter = msg.sender;
     team = msg.sender;
 
@@ -133,15 +137,16 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
                              METADATA STORAGE
     ------------------------------------------------------------*/
 
-  //    string constant public name = "veIonic";
-  //    string constant public symbol = ;
   string public constant version = "1.0.0";
-
-  //    uint8 constant public decimals = 18;
 
   function setTeam(address _team) external {
     require(msg.sender == team, "!team");
     team = _team;
+  }
+
+  // TODO temp fn, remove
+  function setToken(address _token) external onlyOwner {
+    token = _token;
   }
 
   /// @dev Returns current token URI metadata
