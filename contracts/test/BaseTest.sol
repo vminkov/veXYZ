@@ -12,14 +12,7 @@ import "../factories/GaugeFactory.sol";
 import { Voter } from "../Voter.sol";
 import { VoteEscrow } from "../VoteEscrow.sol";
 import "../EpochsTimer.sol";
-
-contract IonicToken is ERC20 {
-  constructor() ERC20("IONIC", "ION", 18) {}
-
-  function mint(address to, uint256 amount) public {
-    _mint(to, amount);
-  }
-}
+import "../IonicToken.sol";
 
 contract IonicFlywheel is IFlywheel {
   IERC20 public rewardToken;
@@ -47,6 +40,8 @@ contract BaseTest is Test {
 
   function setUp() public {
     ionicToken = new IonicToken();
+    ionicToken.initialize();
+    ionicToken.addBridge(address(this));
 
     VoterRolesAuthority voterRolesAuthImpl = new VoterRolesAuthority();
     TransparentUpgradeableProxy rolesAuthProxy = new TransparentUpgradeableProxy(
