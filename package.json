@@ -5,8 +5,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@chainlink/contracts": "^0.4.1",
-    "@nomiclabs/hardhat-ethers": "^2.0.5",
     "@nomiclabs/hardhat-etherscan": "^3.1.7",
     "@nomiclabs/hardhat-truffle5": "^2.0.5",
     "@nomiclabs/hardhat-waffle": "^2.0.3",
@@ -15,9 +13,6 @@
     "@openzeppelin/contracts-upgradeable": "^4.7.0",
     "@openzeppelin/hardhat-upgrades": "^1.17.0",
     "@openzeppelin/test-helpers": "^0.5.15",
-    "@pythnetwork/pyth-sdk-solidity": "^2.2.0",
-    "chai": "^4.3.6",
-    "chai-as-promised": "^7.1.1",
     "dotenv": "^16.0.0",
     "ethereum-waffle": "^3.4.4",
     "ethers": "^5.6.1",
@@ -27,23 +22,29 @@
     "hardhat-gas-reporter": "^1.0.8",
     "hardhat-spdx-license-identifier": "^2.0.3",
     "hardhat-storage-layout": "^0.1.6",
-    "mocha": "^9.2.2",
-    "solidity-coverage": "^0.7.20",
-    "ts-node": "^10.9.1"
+    "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers@^0.3.0-beta.13"
   },
   "scripts": {
     "forge": "forge",
     "prettier": "prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol' --config .prettierrc",
     "lint": "prettier --list-different 'contracts/**/*.sol'",
+    "deploy": "hardhat deploy --tags prod --no-compile",
+    "typechain": "echo '> Creating typechain types...'; [ ! -d ./typechain ] && typechain --target ethers-v5 --out-dir './typechain' './out/**/*.json' --show-stack-traces",
     "deploy:localhost": "hardhat --network localhost deploy --tags prod --no-compile",
-    "deploy": "hardhat deploy --tags prod --no-compile"
+    "deploy:chapel": "hardhat --network chapel deploy --tags prod --no-compile",
+    "deploy:mumbai": "hardhat --network mumbai deploy --tags prod --no-compile"
   },
   "files": [
     "contracts"
   ],
   "devDependencies": {
+    "@typechain/hardhat": "^9.0.0",
     "hardhat-deploy": "^0.11.34",
     "prettier": "^2.6.2",
-    "prettier-plugin-solidity": "^1.0.0-beta.19"
+    "prettier-plugin-solidity": "^1.0.0-beta.19",
+    "typechain": "^8.3.1",
+    "@typechain/ethers-v5": "^11.1.0",
+    "typescript": "^5.1.6",
+    "ts-node": "^10.9.1"
   }
 }
