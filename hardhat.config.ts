@@ -6,6 +6,8 @@ import "hardhat-abi-exporter";
 import "hardhat-deploy";
 import { HardhatUserConfig } from "hardhat/types/config";
 
+import "./tasks";
+
 dotEnvConfig();
 
 const OVERRIDE_RPC_URL = process.env.OVERRIDE_RPC_URL || process.env.ETH_PROVIDER_URL; // Deprecated: ETH_PROVIDER_URL
