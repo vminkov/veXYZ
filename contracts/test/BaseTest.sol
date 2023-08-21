@@ -40,7 +40,7 @@ contract BaseTest is Test {
 
   function setUp() public {
     ionicToken = new IonicToken();
-    ionicToken.initialize();
+    ionicToken.initializeIon();
     ionicToken.addBridge(address(this));
 
     VoterRolesAuthority voterRolesAuthImpl = new VoterRolesAuthority();
