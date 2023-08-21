@@ -1,4 +1,7 @@
-module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) => {
+import { DeployFunction } from "hardhat-deploy/types";
+import { VoteEscrow } from "../typechain/VoteEscrow";
+
+const func: DeployFunction = async ({ run, ethers, getNamedAccounts, deployments, getChainId }): Promise<void> => {
   console.log("RPC URL: ", ethers.provider.connection.url);
   const chainId = parseInt(await getChainId());
   console.log("chainId: ", chainId);
@@ -71,8 +74,8 @@ module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) =
     }
   });
 
-  //const ve = await deployments.getArtifact("VoteEscrow");
-  // console.log(JSON.stringify(ve));
+  const ve = (await ethers.getContract("VoteEscrow", deployer)) as VoteEscrow;
+  console.log(JSON.stringify(ve));
 
   const timer = await deployments.deploy("EpochsTimer", {
     contract: "EpochsTimer",
@@ -100,6 +103,8 @@ module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) =
   console.log(`set the voter in the escrow with tx ${tx.hash}`);
 
   // TODO configure a bridge
-}
+};
 
-module.exports.tags = ["prod"];
+func.tags = ["prod"];
+
+export default func;
