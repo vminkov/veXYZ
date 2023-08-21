@@ -15,6 +15,8 @@ module.exports = async ({ ethers, getNamedAccounts, deployments, getChainId }) =
   if (chainId === HARDHAT_ID || chainId === CHAPEL_ID || chainId === MUMBAI_ID) {
     // lock ION for testing
     lockedTokenAddress = ionicTokenAddress;
+
+
   } else {
     // lockedTokenAddress = BAL8020;
   }
