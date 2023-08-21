@@ -272,8 +272,9 @@ contract BaseTest is Test {
 
     ve.merge(tokenId0, tokenId1);
 
-    assertEq(ve.ownerOf(tokenId0), address(0), "testMergeSplit/invalid-merge");
-    
+    vm.expectRevert("ERC721: invalid token ID");
+    ve.ownerOf(tokenId0);
+
     uint256[] memory amounts = new uint256[](2);
     amounts[0] = 40e18;
     amounts[1] = 60e18;
@@ -351,9 +352,8 @@ contract BaseTest is Test {
 
     ve.withdraw(tokenId);
 
-    owner = ve.ownerOf(tokenId);
-
-    assertEq(owner, address(0), "testIonicWithdraw/still-owner");
+    vm.expectRevert("ERC721: invalid token ID");
+    ve.ownerOf(tokenId);
   }
 
   function testCreateMarketGauges() public {
