@@ -87,7 +87,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   /// @dev ERC165 interface ID of ERC721Metadata
   bytes4 internal constant ERC721_METADATA_INTERFACE_ID = 0x5b5e139f;
 
-  // TODO remove
   /// @dev Current count of token
   uint internal tokenId;
 
