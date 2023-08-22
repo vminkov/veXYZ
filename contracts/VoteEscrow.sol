@@ -63,8 +63,6 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
   );
   event Withdraw(address indexed provider, uint tokenId, uint value, uint ts);
   event Supply(uint prevSupply, uint supply);
-  event MintAsBridge(uint _tokenId, bytes _metadata);
-  event BurnAsBridge(uint _tokenId, bytes _metadata);
 
   /*------------------------------------------------------------
                                CONSTRUCTOR
@@ -495,7 +493,9 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     // Remove token
     _removeTokenFrom(owner, _tokenId);
 
-    super._burn(_tokenId);
+    // TODO use OZ ERC721Upgradeable or not?
+    //super._burn(_tokenId);
+    emit Transfer(owner, address(0), _tokenId);
   }
 
   function _afterMint(uint256 _tokenId, bytes memory _metadata) internal virtual override {
@@ -504,17 +504,13 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     locked[_tokenId] = newLocked;
     LockedBalance memory oldLocked = LockedBalance(0, 0);
     _checkpoint(_tokenId, oldLocked, newLocked);
-
-    emit MintAsBridge(_tokenId, _metadata);
   }
 
   function _beforeBurn(uint256 _tokenId) internal virtual override returns (bytes memory _metadata) {
     _metadata = abi.encode(locked[_tokenId].amount, locked[_tokenId].end);
-    LockedBalance memory _locked0 = locked[_tokenId];
+    LockedBalance memory _locked = locked[_tokenId];
     locked[_tokenId] = LockedBalance(0, 0);
-    _checkpoint(_tokenId, _locked0, LockedBalance(0, 0));
-
-    emit BurnAsBridge(_tokenId, _metadata);
+    _checkpoint(_tokenId, _locked, LockedBalance(0, 0));
   }
 
   /*------------------------------------------------------------
@@ -725,12 +721,13 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     if (unlock_time != 0) {
       _locked.end = unlock_time;
     }
+    locked[_tokenId] = _locked;
 
     // Possibilities:
     // Both old_locked.end could be current or expired (>/< block.timestamp)
     // value == 0 (extend lock) or value > 0 (add to lock or extend lock)
     // _locked.end > block.timestamp (always)
-    _afterMint(_tokenId, abi.encode(_locked.amount, _locked.end));
+    _checkpoint(_tokenId, old_locked, _locked);
 
     address from = msg.sender;
     if (_value != 0 && deposit_type != DepositType.MERGE_TYPE && deposit_type != DepositType.SPLIT_TYPE) {
