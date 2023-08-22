@@ -114,7 +114,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
 
     masterChainId = ARBITRUM_ONE;
 
-    require(token_addr != address(0), "");
+    require(token_addr != address(0), "!token");
     token = token_addr;
 
     voter = msg.sender;
