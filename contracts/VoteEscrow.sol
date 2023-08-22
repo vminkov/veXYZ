@@ -113,7 +113,7 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
 
     masterChainId = ARBITRUM_ONE;
 
-    require(token_addr != address(0), "");
+    require(token_addr != address(0), "!token");
     token = token_addr;
 
     voter = msg.sender;
@@ -279,7 +279,9 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     // Remove token
     _removeTokenFromOwnerList(owner, _tokenId);
 
+    // TODO use OZ ERC721Upgradeable or not?
     super._burn(_tokenId);
+    //emit Transfer(owner, address(0), _tokenId);
   }
 
   function _afterMint(uint256 _tokenId, bytes memory _metadata) internal virtual override {
