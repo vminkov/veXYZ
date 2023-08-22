@@ -280,7 +280,9 @@ contract VoteEscrow is XERC721Upgradeable, IVotesUpgradeable, ReentrancyGuardUpg
     // Remove token
     _removeTokenFromOwnerList(owner, _tokenId);
 
-    super._burn(_tokenId);
+    // TODO use OZ ERC721Upgradeable or not?
+    //super._burn(_tokenId);
+    emit Transfer(owner, address(0), _tokenId);
   }
 
   function _afterMint(uint256 _tokenId, bytes memory _metadata) internal virtual override {
