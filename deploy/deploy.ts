@@ -97,6 +97,24 @@ const func: DeployFunction = async ({ run, ethers, getNamedAccounts, deployments
 
   const bribeFactory = ethers.constants.AddressZero;
 
+  const voter = await deployments.deploy("Voter", {
+    contract: "Voter",
+    from: deployer,
+    args: [],
+    log: true,
+    waitConfirmations: 1,
+    proxy: {
+      execute: {
+        init: {
+          methodName: "initialize",
+          args: [voteEscrow.address, gaugeFactory.address, bribeFactory, timer.address, voterRolesAuth.address]
+        }
+      },
+      owner: deployer,
+      proxyContract: "OpenZeppelinTransparentProxy"
+    }
+  });
+
   const voteEscrowContract = await ethers.getContractAt(voteEscrow.abi, voteEscrow.address);
   let tx = await voteEscrowContract.setVoter(voter.address);
   await tx.wait();
