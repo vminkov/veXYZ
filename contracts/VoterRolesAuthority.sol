@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.13;
+pragma solidity 0.8.19;
 
 import { RolesAuthority, Authority } from "solmate/auth/authorities/RolesAuthority.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";

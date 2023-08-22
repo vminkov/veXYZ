@@ -1,30 +1,19 @@
-const { configDotenv } = require("dotenv");
+import "@nomiclabs/hardhat-ethers";
+import "@nomiclabs/hardhat-waffle";
+import "@typechain/hardhat";
+import { config as dotEnvConfig } from "dotenv";
+import "hardhat-abi-exporter";
+import "hardhat-deploy";
+import { HardhatUserConfig } from "hardhat/types/config";
 
-require("@nomiclabs/hardhat-etherscan");
-require("@nomiclabs/hardhat-waffle");
-require('@nomiclabs/hardhat-truffle5');
-require('@nomiclabs/hardhat-web3');
-require("hardhat-gas-reporter");
-require('hardhat-contract-sizer');
-require("solidity-coverage");
-require('hardhat-spdx-license-identifier');
-require('hardhat-abi-exporter');
-require('hardhat-storage-layout');
-require('@openzeppelin/hardhat-upgrades');
-const fs = require("fs");
-require('hardhat-deploy');
-var HardhatUserConfig = require("hardhat/types/config").HardhatUserConfig;
+import "./tasks";
 
-console.info('loading the .env config...');
-configDotenv();
+dotEnvConfig();
 
 const OVERRIDE_RPC_URL = process.env.OVERRIDE_RPC_URL || process.env.ETH_PROVIDER_URL; // Deprecated: ETH_PROVIDER_URL
-const mnemonic =
-    process.env.MNEMONIC ||
-    "test test test test test test test test test test test junk";
+const mnemonic = process.env.MNEMONIC || "test test test test test test test test test test test junk";
 
-/** @type import('hardhat/config').HardhatUserConfig */
-module.exports = {
+const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
@@ -55,7 +44,7 @@ module.exports = {
       allowUnlimitedContractSize: true,
       chainId: 1337,
       gas: 25e6,
-      gasPrice: 20e10,
+      gasPrice: 20e10
     },
     arbitrum: {
       url: OVERRIDE_RPC_URL || `https://arb1.arbitrum.io/rpc`,
@@ -71,6 +60,8 @@ module.exports = {
       accounts: { mnemonic },
       chainId: 80001,
       url: OVERRIDE_RPC_URL || "https://rpc-mumbai.maticvigil.com"
-    },
+    }
   }
-}
+};
+
+export default config;
